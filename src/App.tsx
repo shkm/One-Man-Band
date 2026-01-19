@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { Group as PanelGroup, Panel, Separator as PanelResizeHandle } from 'react-resizable-panels';
 import { Sidebar } from './components/Sidebar/Sidebar';
 import { ClaudePane } from './components/ClaudePane/ClaudePane';
 import { RightPanel } from './components/RightPanel/RightPanel';
@@ -109,35 +110,45 @@ function App() {
       )}
 
       {/* Main content */}
-      <div className="flex-1 flex overflow-hidden">
+      <PanelGroup orientation="horizontal" className="flex-1">
         {/* Sidebar */}
-        <div className="w-64 flex-shrink-0 h-full">
-          <Sidebar
-            projects={projects}
-            selectedWorkspaceId={activeWorkspaceId}
-            onSelectWorkspace={handleSelectWorkspace}
-            onAddProject={handleAddProject}
-            onAddWorkspace={handleAddWorkspace}
-          />
-        </div>
+        <Panel defaultSize="15%" minSize="10%" maxSize="30%">
+          <div className="h-full w-full">
+            <Sidebar
+              projects={projects}
+              selectedWorkspaceId={activeWorkspaceId}
+              onSelectWorkspace={handleSelectWorkspace}
+              onAddProject={handleAddProject}
+              onAddWorkspace={handleAddWorkspace}
+            />
+          </div>
+        </Panel>
+
+        <PanelResizeHandle className="w-px bg-zinc-800 hover:bg-zinc-600 transition-colors focus:outline-none cursor-col-resize" />
 
         {/* Main Claude Pane */}
-        <div className="flex-1 h-full min-w-0">
-          <ClaudePane
-            openWorkspaces={openWorkspaces}
-            activeWorkspaceId={activeWorkspaceId}
-            terminalConfig={config.claude}
-            onSelectTab={handleSelectTab}
-            onCloseTab={handleCloseTab}
-            onDeleteWorkspace={handleDeleteWorkspace}
-          />
-        </div>
+        <Panel defaultSize="65%" minSize="30%">
+          <div className="h-full w-full">
+            <ClaudePane
+              openWorkspaces={openWorkspaces}
+              activeWorkspaceId={activeWorkspaceId}
+              terminalConfig={config.claude}
+              onSelectTab={handleSelectTab}
+              onCloseTab={handleCloseTab}
+              onDeleteWorkspace={handleDeleteWorkspace}
+            />
+          </div>
+        </Panel>
+
+        <PanelResizeHandle className="w-px bg-zinc-800 hover:bg-zinc-600 transition-colors focus:outline-none cursor-col-resize" />
 
         {/* Right Panel */}
-        <div className="w-80 flex-shrink-0 h-full">
-          <RightPanel workspace={activeWorkspace} changedFiles={changedFiles} terminalConfig={config.terminal} />
-        </div>
-      </div>
+        <Panel defaultSize="20%" minSize="15%" maxSize="40%">
+          <div className="h-full w-full">
+            <RightPanel workspace={activeWorkspace} changedFiles={changedFiles} terminalConfig={config.terminal} />
+          </div>
+        </Panel>
+      </PanelGroup>
     </div>
   );
 }

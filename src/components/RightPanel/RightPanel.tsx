@@ -1,3 +1,4 @@
+import { Group as PanelGroup, Panel, Separator as PanelResizeHandle } from 'react-resizable-panels';
 import { ChangedFiles } from './ChangedFiles';
 import { Terminal } from './Terminal';
 import { Workspace, FileChange } from '../../types';
@@ -25,15 +26,19 @@ export function RightPanel({ workspace, changedFiles, terminalConfig }: RightPan
   return (
     <div className="h-full bg-zinc-900 border-l border-zinc-800 flex flex-col">
       <DragRegion className="h-10 flex-shrink-0" />
-      <div className="flex-1 overflow-hidden flex flex-col">
-        <div className="h-1/2 overflow-hidden">
-          <ChangedFiles files={changedFiles} />
-        </div>
-        <div className="h-1 bg-zinc-800 flex-shrink-0" />
-        <div className="h-1/2 overflow-hidden">
-          <Terminal workspace={workspace} terminalConfig={terminalConfig} />
-        </div>
-      </div>
+      <PanelGroup orientation="vertical" className="flex-1">
+        <Panel defaultSize="50%" minSize="20%">
+          <div className="h-full w-full overflow-hidden">
+            <ChangedFiles files={changedFiles} />
+          </div>
+        </Panel>
+        <PanelResizeHandle className="h-px bg-zinc-800 hover:bg-zinc-600 transition-colors focus:outline-none cursor-row-resize" />
+        <Panel defaultSize="50%" minSize="20%">
+          <div className="h-full w-full overflow-hidden">
+            <Terminal workspace={workspace} terminalConfig={terminalConfig} />
+          </div>
+        </Panel>
+      </PanelGroup>
     </div>
   );
 }
