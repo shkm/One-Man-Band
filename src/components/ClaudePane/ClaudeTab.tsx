@@ -1,0 +1,189 @@
+import { useEffect, useRef, useCallback, useMemo } from 'react';
+import { Terminal } from '@xterm/xterm';
+import { FitAddon } from '@xterm/addon-fit';
+import { WebLinksAddon } from '@xterm/addon-web-links';
+import { Workspace } from '../../types';
+import { usePty } from '../../hooks/usePty';
+import '@xterm/xterm/css/xterm.css';
+
+// Debounce helper
+function debounce<T extends (...args: unknown[]) => void>(fn: T, ms: number): T {
+  let timeout: ReturnType<typeof setTimeout>;
+  return ((...args: unknown[]) => {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => fn(...args), ms);
+  }) as T;
+}
+
+interface ClaudeTabProps {
+  workspace: Workspace;
+  isActive: boolean;
+}
+
+export function ClaudeTab({ workspace, isActive }: ClaudeTabProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const terminalRef = useRef<Terminal | null>(null);
+  const fitAddonRef = useRef<FitAddon | null>(null);
+  const initializedRef = useRef(false);
+  const spawnedAtRef = useRef<number>(0); // Track when we spawned to avoid early resizes
+
+  // Handle PTY output by writing directly to terminal
+  const handleOutput = useCallback((data: string) => {
+    if (terminalRef.current) {
+      terminalRef.current.write(data);
+    }
+  }, []);
+
+  const { ptyId, spawn, write, resize } = usePty(handleOutput);
+
+  // Store spawn in ref so it's stable for the effect
+  const spawnRef = useRef(spawn);
+  useEffect(() => {
+    spawnRef.current = spawn;
+  }, [spawn]);
+
+  // Initialize terminal and spawn PTY - only runs once per workspace
+  useEffect(() => {
+    if (!containerRef.current || initializedRef.current) return;
+    initializedRef.current = true;
+
+    const terminal = new Terminal({
+      cursorBlink: true,
+      cursorStyle: 'block',
+      fontSize: 13,
+      fontFamily: 'Menlo, Monaco, "Courier New", monospace',
+      allowProposedApi: true,
+      theme: {
+        background: '#09090b',
+        foreground: '#fafafa',
+        cursor: '#fafafa',
+        cursorAccent: '#09090b',
+        selectionBackground: '#3f3f46',
+        black: '#18181b',
+        red: '#ef4444',
+        green: '#22c55e',
+        yellow: '#eab308',
+        blue: '#3b82f6',
+        magenta: '#a855f7',
+        cyan: '#06b6d4',
+        white: '#f4f4f5',
+        brightBlack: '#52525b',
+        brightRed: '#f87171',
+        brightGreen: '#4ade80',
+        brightYellow: '#facc15',
+        brightBlue: '#60a5fa',
+        brightMagenta: '#c084fc',
+        brightCyan: '#22d3ee',
+        brightWhite: '#ffffff',
+      },
+    });
+
+    const fitAddon = new FitAddon();
+    const webLinksAddon = new WebLinksAddon();
+
+    terminal.loadAddon(fitAddon);
+    terminal.loadAddon(webLinksAddon);
+    terminal.open(containerRef.current);
+
+    terminalRef.current = terminal;
+    fitAddonRef.current = fitAddon;
+
+    // Fit terminal and spawn Claude with correct size
+    const initPty = async () => {
+      // Wait for layout to fully settle
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      fitAddon.fit();
+
+      // Wait a bit more and fit again to ensure stable size
+      await new Promise(resolve => setTimeout(resolve, 100));
+      fitAddon.fit();
+
+      const cols = terminal.cols;
+      const rows = terminal.rows;
+
+      // Spawn Claude CLI with stable size
+      spawnedAtRef.current = Date.now();
+      await spawnRef.current(workspace.id, 'claude', cols, rows);
+    };
+
+    initPty().catch(console.error);
+
+    return () => {
+      terminal.dispose();
+      terminalRef.current = null;
+      fitAddonRef.current = null;
+      initializedRef.current = false;
+    };
+  }, [workspace.id]); // Only re-run when workspace changes
+
+  // Handle user input - set up immediately when we have ptyId
+  useEffect(() => {
+    const terminal = terminalRef.current;
+    if (!terminal || !ptyId) return;
+
+    const disposable = terminal.onData((data) => {
+      write(data);
+    });
+
+    return () => disposable.dispose();
+  }, [ptyId, write]);
+
+  // Store resize function in ref to avoid dependency issues
+  const resizeRef = useRef(resize);
+  const ptyIdRef = useRef(ptyId);
+
+  useEffect(() => {
+    resizeRef.current = resize;
+    ptyIdRef.current = ptyId;
+  }, [resize, ptyId]);
+
+  // Debounced resize handler - stable reference
+  const debouncedResize = useMemo(
+    () =>
+      debounce(() => {
+        const terminal = terminalRef.current;
+        const fitAddon = fitAddonRef.current;
+        if (!terminal || !fitAddon || !ptyIdRef.current) return;
+
+        // Skip resizes within 1 second of spawn to let Claude's UI settle
+        if (Date.now() - spawnedAtRef.current < 1000) return;
+
+        fitAddon.fit();
+        resizeRef.current(terminal.cols, terminal.rows);
+      }, 150),
+    []
+  );
+
+  // Fit on active change
+  useEffect(() => {
+    if (isActive && ptyId) {
+      // Small delay to let layout settle, then resize
+      const timeout = setTimeout(debouncedResize, 50);
+      return () => clearTimeout(timeout);
+    }
+  }, [isActive, ptyId, debouncedResize]);
+
+  // Window resize handler
+  useEffect(() => {
+    if (!ptyId) return;
+
+    window.addEventListener('resize', debouncedResize);
+    return () => window.removeEventListener('resize', debouncedResize);
+  }, [ptyId, debouncedResize]);
+
+  // Focus terminal when active
+  useEffect(() => {
+    if (isActive && terminalRef.current) {
+      terminalRef.current.focus();
+    }
+  }, [isActive]);
+
+  return (
+    <div
+      ref={containerRef}
+      className="w-full h-full"
+      style={{ backgroundColor: '#09090b' }}
+    />
+  );
+}
