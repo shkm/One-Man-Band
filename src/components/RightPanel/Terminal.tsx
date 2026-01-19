@@ -4,6 +4,7 @@ import { FitAddon } from '@xterm/addon-fit';
 import { WebglAddon } from '@xterm/addon-webgl';
 import { Workspace } from '../../types';
 import { usePty } from '../../hooks/usePty';
+import { TerminalConfig } from '../../hooks/useConfig';
 import '@xterm/xterm/css/xterm.css';
 
 // Debounce helper
@@ -17,9 +18,10 @@ function debounce<T extends (...args: unknown[]) => void>(fn: T, ms: number): T 
 
 interface TerminalProps {
   workspace: Workspace;
+  terminalConfig: TerminalConfig;
 }
 
-export function Terminal({ workspace }: TerminalProps) {
+export function Terminal({ workspace, terminalConfig }: TerminalProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const terminalRef = useRef<XTerm | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
@@ -48,8 +50,8 @@ export function Terminal({ workspace }: TerminalProps) {
     const terminal = new XTerm({
       cursorBlink: true,
       cursorStyle: 'block',
-      fontSize: 12,
-      fontFamily: 'Menlo, Monaco, "Courier New", monospace',
+      fontSize: terminalConfig.fontSize,
+      fontFamily: terminalConfig.fontFamily,
       theme: {
         background: '#18181b',
         foreground: '#fafafa',

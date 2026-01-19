@@ -5,11 +5,13 @@ import { RightPanel } from './components/RightPanel/RightPanel';
 import { ConfirmModal } from './components/ConfirmModal';
 import { useWorkspaces } from './hooks/useWorkspaces';
 import { useGitStatus } from './hooks/useGitStatus';
+import { useConfig } from './hooks/useConfig';
 import { selectFolder } from './lib/tauri';
 import { Workspace } from './types';
 
 function App() {
   const { projects, addProject, createWorkspace, deleteWorkspace } = useWorkspaces();
+  const { config } = useConfig();
   const [openWorkspaces, setOpenWorkspaces] = useState<Workspace[]>([]);
   const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(null);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
@@ -124,6 +126,7 @@ function App() {
           <ClaudePane
             openWorkspaces={openWorkspaces}
             activeWorkspaceId={activeWorkspaceId}
+            terminalConfig={config.claude}
             onSelectTab={handleSelectTab}
             onCloseTab={handleCloseTab}
             onDeleteWorkspace={handleDeleteWorkspace}
@@ -132,7 +135,7 @@ function App() {
 
         {/* Right Panel */}
         <div className="w-80 flex-shrink-0 h-full">
-          <RightPanel workspace={activeWorkspace} changedFiles={changedFiles} />
+          <RightPanel workspace={activeWorkspace} changedFiles={changedFiles} terminalConfig={config.terminal} />
         </div>
       </div>
     </div>

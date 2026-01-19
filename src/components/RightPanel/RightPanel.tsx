@@ -2,13 +2,15 @@ import { ChangedFiles } from './ChangedFiles';
 import { Terminal } from './Terminal';
 import { Workspace, FileChange } from '../../types';
 import { DragRegion } from '../DragRegion';
+import { TerminalConfig } from '../../hooks/useConfig';
 
 interface RightPanelProps {
   workspace: Workspace | null;
   changedFiles: FileChange[];
+  terminalConfig: TerminalConfig;
 }
 
-export function RightPanel({ workspace, changedFiles }: RightPanelProps) {
+export function RightPanel({ workspace, changedFiles, terminalConfig }: RightPanelProps) {
   if (!workspace) {
     return (
       <div className="h-full bg-zinc-900 border-l border-zinc-800 flex flex-col text-zinc-500 text-sm">
@@ -29,7 +31,7 @@ export function RightPanel({ workspace, changedFiles }: RightPanelProps) {
         </div>
         <div className="h-1 bg-zinc-800 flex-shrink-0" />
         <div className="h-1/2 overflow-hidden">
-          <Terminal workspace={workspace} />
+          <Terminal workspace={workspace} terminalConfig={terminalConfig} />
         </div>
       </div>
     </div>

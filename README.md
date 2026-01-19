@@ -87,6 +87,30 @@ The built application will be available at:
 - **Workspaces**: Created in `~/.workspaces/<repo-name>/<workspace-name>/`
 - **State**: Persisted in `~/.onemanband/state.json`
 
+## Configuration
+
+Settings are stored in `~/.config/onemanband/config.jsonc`. The file is created with defaults on first run.
+
+```jsonc
+{
+  // Claude terminal (main pane)
+  "claude": {
+    "fontFamily": "Menlo, Monaco, 'Courier New', monospace",
+    "fontSize": 13
+  },
+
+  // Shell terminal (bottom-right pane)
+  "terminal": {
+    "fontFamily": "Menlo, Monaco, 'Courier New', monospace",
+    "fontSize": 13
+  }
+}
+```
+
+Both sections support the same options:
+- **fontFamily**: CSS font-family string for the terminal
+- **fontSize**: Font size in pixels
+
 ## License
 
 MIT

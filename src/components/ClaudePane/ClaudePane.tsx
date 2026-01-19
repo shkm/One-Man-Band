@@ -2,10 +2,12 @@ import { X, Terminal, Trash2 } from 'lucide-react';
 import { Workspace } from '../../types';
 import { ClaudeTab } from './ClaudeTab';
 import { DragRegion } from '../DragRegion';
+import { TerminalConfig } from '../../hooks/useConfig';
 
 interface ClaudePaneProps {
   openWorkspaces: Workspace[];
   activeWorkspaceId: string | null;
+  terminalConfig: TerminalConfig;
   onSelectTab: (workspaceId: string) => void;
   onCloseTab: (workspaceId: string) => void;
   onDeleteWorkspace: (workspaceId: string) => void;
@@ -14,6 +16,7 @@ interface ClaudePaneProps {
 export function ClaudePane({
   openWorkspaces,
   activeWorkspaceId,
+  terminalConfig,
   onSelectTab,
   onCloseTab,
   onDeleteWorkspace,
@@ -80,7 +83,7 @@ export function ClaudePane({
               workspace.id === activeWorkspaceId ? 'block' : 'hidden'
             }`}
           >
-            <ClaudeTab workspace={workspace} isActive={workspace.id === activeWorkspaceId} />
+            <ClaudeTab workspace={workspace} isActive={workspace.id === activeWorkspaceId} terminalConfig={terminalConfig} />
           </div>
         ))}
       </div>

@@ -1,3 +1,4 @@
+mod config;
 mod git;
 mod pty;
 mod state;
@@ -154,6 +155,12 @@ fn pty_kill(state: State<'_, Arc<AppState>>, pty_id: &str) -> Result<()> {
     pty::kill_pty(&state, pty_id).map_err(map_err)
 }
 
+// Config commands
+#[tauri::command]
+fn get_config() -> config::Config {
+    config::load_config()
+}
+
 // Git commands
 #[tauri::command]
 fn get_changed_files(workspace_path: &str) -> Result<Vec<FileChange>> {
@@ -193,6 +200,7 @@ pub fn run() {
             get_changed_files,
             start_watching,
             stop_watching,
+            get_config,
         ])
         .on_window_event(|_window, event| {
             if let tauri::WindowEvent::Destroyed = event {

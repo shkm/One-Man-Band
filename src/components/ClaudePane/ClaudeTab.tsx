@@ -5,6 +5,7 @@ import { WebLinksAddon } from '@xterm/addon-web-links';
 import { WebglAddon } from '@xterm/addon-webgl';
 import { Workspace } from '../../types';
 import { usePty } from '../../hooks/usePty';
+import { TerminalConfig } from '../../hooks/useConfig';
 import '@xterm/xterm/css/xterm.css';
 
 // Debounce helper
@@ -19,9 +20,10 @@ function debounce<T extends (...args: unknown[]) => void>(fn: T, ms: number): T 
 interface ClaudeTabProps {
   workspace: Workspace;
   isActive: boolean;
+  terminalConfig: TerminalConfig;
 }
 
-export function ClaudeTab({ workspace, isActive }: ClaudeTabProps) {
+export function ClaudeTab({ workspace, isActive, terminalConfig }: ClaudeTabProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const terminalRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
@@ -56,8 +58,8 @@ export function ClaudeTab({ workspace, isActive }: ClaudeTabProps) {
     const terminal = new Terminal({
       cursorBlink: true,
       cursorStyle: 'block',
-      fontSize: 13,
-      fontFamily: 'Menlo, Monaco, "Courier New", monospace',
+      fontSize: terminalConfig.fontSize,
+      fontFamily: terminalConfig.fontFamily,
       allowProposedApi: true,
       theme: {
         background: '#09090b',
