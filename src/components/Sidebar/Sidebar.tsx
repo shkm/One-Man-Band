@@ -37,7 +37,7 @@ export function Sidebar({
   return (
     <div className="flex flex-col h-full bg-zinc-900 border-r border-zinc-800">
       {/* Drag region for macOS traffic lights */}
-      <DragRegion className="h-10 flex-shrink-0" />
+      <DragRegion className="h-8 flex-shrink-0" />
       <div className="flex-1 overflow-y-auto p-2">
         {projects.length === 0 ? (
           <div className="text-center py-8 text-zinc-500 text-sm">

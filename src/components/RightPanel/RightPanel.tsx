@@ -2,7 +2,6 @@ import { Group as PanelGroup, Panel, Separator as PanelResizeHandle } from 'reac
 import { ChangedFiles } from './ChangedFiles';
 import { Terminal } from './Terminal';
 import { Workspace, FileChange } from '../../types';
-import { DragRegion } from '../DragRegion';
 import { TerminalConfig } from '../../hooks/useConfig';
 
 interface RightPanelProps {
@@ -15,7 +14,6 @@ export function RightPanel({ workspace, changedFiles, terminalConfig }: RightPan
   if (!workspace) {
     return (
       <div className="h-full bg-zinc-900 border-l border-zinc-800 flex flex-col text-zinc-500 text-sm">
-        <DragRegion className="h-10 flex-shrink-0" />
         <div className="flex-1 flex items-center justify-center">
           Select a workspace
         </div>
@@ -25,7 +23,6 @@ export function RightPanel({ workspace, changedFiles, terminalConfig }: RightPan
 
   return (
     <div className="h-full bg-zinc-900 border-l border-zinc-800 flex flex-col">
-      <DragRegion className="h-10 flex-shrink-0" />
       <PanelGroup orientation="vertical" className="flex-1">
         <Panel defaultSize="50%" minSize="20%">
           <div className="h-full w-full overflow-hidden">
