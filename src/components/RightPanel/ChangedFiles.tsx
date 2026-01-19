@@ -14,7 +14,7 @@ const statusConfig: Record<FileChange['status'], { color: string; label: string 
 
 export function ChangedFiles({ files }: ChangedFilesProps) {
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full select-none">
       <div className="px-3 py-2 border-b border-zinc-800 flex items-center justify-between">
         <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">
           Changed Files

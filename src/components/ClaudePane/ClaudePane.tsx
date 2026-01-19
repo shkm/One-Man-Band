@@ -23,7 +23,7 @@ export function ClaudePane({
 }: ClaudePaneProps) {
   if (openWorkspaces.length === 0) {
     return (
-      <div className="flex flex-col h-full bg-zinc-950 text-zinc-500">
+      <div className="flex flex-col h-full bg-zinc-950 text-zinc-500 select-none">
         <DragRegion className="h-8 flex-shrink-0 bg-zinc-900 border-b border-zinc-800" />
         <div className="flex-1 flex flex-col items-center justify-center">
           <Terminal size={48} className="mb-4 opacity-50" />
@@ -37,7 +37,7 @@ export function ClaudePane({
   return (
     <div className="flex flex-col h-full bg-zinc-950">
       {/* Tab bar with drag region */}
-      <DragRegion className="flex items-end h-8 bg-zinc-900 border-b border-zinc-800">
+      <DragRegion className="flex items-end h-8 bg-zinc-900 border-b border-zinc-800 select-none">
         <div className="flex items-center overflow-x-auto flex-1">
           {openWorkspaces.map((workspace) => (
             <div
