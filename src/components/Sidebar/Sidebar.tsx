@@ -1,4 +1,4 @@
-import { FolderGit2, Plus, ChevronRight, ChevronDown, GitBranch, MoreHorizontal, Trash2, Loader2, Terminal, GitMerge, X } from 'lucide-react';
+import { FolderGit2, Plus, ChevronRight, ChevronDown, GitBranch, MoreHorizontal, Trash2, Loader2, Terminal, GitMerge, X, PanelRight } from 'lucide-react';
 import { Project, Worktree } from '../../types';
 import { useState } from 'react';
 import { DragRegion } from '../DragRegion';
@@ -11,6 +11,7 @@ interface SidebarProps {
   loadingWorktrees: Set<string>;
   expandedProjects: Set<string>;
   isDrawerOpen: boolean;
+  isRightPanelOpen: boolean;
   onToggleProject: (projectId: string) => void;
   onSelectWorktree: (worktree: Worktree) => void;
   onAddProject: () => void;
@@ -19,6 +20,7 @@ interface SidebarProps {
   onCloseWorktree: (worktreeId: string) => void;
   onMergeWorktree: (worktreeId: string) => void;
   onToggleDrawer: () => void;
+  onToggleRightPanel: () => void;
   onRemoveProject: (project: Project) => void;
 }
 
@@ -29,6 +31,7 @@ export function Sidebar({
   loadingWorktrees,
   expandedProjects,
   isDrawerOpen,
+  isRightPanelOpen,
   onToggleProject,
   onSelectWorktree,
   onAddProject,
@@ -37,6 +40,7 @@ export function Sidebar({
   onCloseWorktree,
   onMergeWorktree,
   onToggleDrawer,
+  onToggleRightPanel,
   onRemoveProject,
 }: SidebarProps) {
   const [contextMenu, setContextMenu] = useState<{
@@ -222,6 +226,15 @@ export function Sidebar({
             title="Toggle terminal (Ctrl+`)"
           >
             <Terminal size={16} />
+          </button>
+          <button
+            onClick={onToggleRightPanel}
+            className={`p-1.5 rounded hover:bg-zinc-800 flex-shrink-0 ${
+              isRightPanelOpen ? 'text-blue-400' : 'text-zinc-500 hover:text-zinc-300'
+            }`}
+            title="Toggle right panel (Cmd+R)"
+          >
+            <PanelRight size={16} />
           </button>
           <div className="flex-1" />
           <button

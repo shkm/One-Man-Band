@@ -33,6 +33,17 @@ function createDefaultDrawerState(): DrawerState {
   };
 }
 
+// Per-worktree right panel state
+interface RightPanelState {
+  isOpen: boolean;
+}
+
+function createDefaultRightPanelState(): RightPanelState {
+  return {
+    isOpen: false,
+  };
+}
+
 function App() {
   const { projects, addProject, removeProject, createWorktree, deleteWorktree, refresh: refreshProjects } = useWorktrees();
   const { config } = useConfig();
@@ -44,8 +55,14 @@ function App() {
   // Per-worktree drawer state
   const [drawerStates, setDrawerStates] = useState<Map<string, DrawerState>>(new Map());
 
+  // Per-worktree right panel state
+  const [rightPanelStates, setRightPanelStates] = useState<Map<string, RightPanelState>>(new Map());
+
   // Get current worktree's drawer state
   const activeDrawerState = activeWorktreeId ? drawerStates.get(activeWorktreeId) ?? createDefaultDrawerState() : null;
+
+  // Get current worktree's right panel state
+  const activeRightPanelState = activeWorktreeId ? rightPanelStates.get(activeWorktreeId) ?? createDefaultRightPanelState() : null;
 
   // Modal state
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
@@ -151,6 +168,17 @@ function App() {
     });
   }, [activeWorktreeId]);
 
+  // Toggle right panel handler
+  const handleToggleRightPanel = useCallback(() => {
+    if (!activeWorktreeId) return;
+    setRightPanelStates((prev) => {
+      const current = prev.get(activeWorktreeId) ?? createDefaultRightPanelState();
+      const next = new Map(prev);
+      next.set(activeWorktreeId, { isOpen: !current.isOpen });
+      return next;
+    });
+  }, [activeWorktreeId]);
+
   // Add new drawer tab handler
   const handleAddDrawerTab = useCallback(() => {
     if (!activeWorktreeId) return;
@@ -231,11 +259,17 @@ function App() {
           handleCloseDrawerTab(activeDrawerState.activeTabId);
         }
       }
+
+      // Cmd+R to toggle right panel
+      if ((e.metaKey || e.ctrlKey) && e.key === 'r') {
+        e.preventDefault();
+        handleToggleRightPanel();
+      }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeWorktreeId, activeDrawerState?.isOpen, activeDrawerState?.activeTabId, handleToggleDrawer, handleAddDrawerTab, handleCloseDrawerTab]);
+  }, [activeWorktreeId, activeDrawerState?.isOpen, activeDrawerState?.activeTabId, handleToggleDrawer, handleAddDrawerTab, handleCloseDrawerTab, handleToggleRightPanel]);
 
   // Worktree handlers
   const handleAddProject = useCallback(async () => {
@@ -284,8 +318,13 @@ function App() {
         next.delete(worktreeId);
         return next;
       });
-      // Clean up drawer state for this worktree
+      // Clean up drawer and right panel state for this worktree
       setDrawerStates((prev) => {
+        const next = new Map(prev);
+        next.delete(worktreeId);
+        return next;
+      });
+      setRightPanelStates((prev) => {
         const next = new Map(prev);
         next.delete(worktreeId);
         return next;
@@ -311,8 +350,13 @@ function App() {
         next.delete(pendingDeleteId);
         return next;
       });
-      // Clean up drawer state for this worktree
+      // Clean up drawer and right panel state for this worktree
       setDrawerStates((prev) => {
+        const next = new Map(prev);
+        next.delete(pendingDeleteId);
+        return next;
+      });
+      setRightPanelStates((prev) => {
         const next = new Map(prev);
         next.delete(pendingDeleteId);
         return next;
@@ -366,8 +410,15 @@ function App() {
         }
         return next;
       });
-      // Clean up drawer states for project worktrees
+      // Clean up drawer and right panel states for project worktrees
       setDrawerStates((prev) => {
+        const next = new Map(prev);
+        for (const id of projectWorktreeIds) {
+          next.delete(id);
+        }
+        return next;
+      });
+      setRightPanelStates((prev) => {
         const next = new Map(prev);
         for (const id of projectWorktreeIds) {
           next.delete(id);
@@ -445,6 +496,7 @@ function App() {
               loadingWorktrees={loadingWorktrees}
               expandedProjects={expandedProjects}
               isDrawerOpen={activeDrawerState?.isOpen ?? false}
+              isRightPanelOpen={activeRightPanelState?.isOpen ?? false}
               onToggleProject={toggleProject}
               onSelectWorktree={handleSelectWorktree}
               onAddProject={handleAddProject}
@@ -453,6 +505,7 @@ function App() {
               onCloseWorktree={handleCloseWorktree}
               onMergeWorktree={handleMergeWorktree}
               onToggleDrawer={handleToggleDrawer}
+              onToggleRightPanel={handleToggleRightPanel}
               onRemoveProject={handleRemoveProject}
             />
           </div>
@@ -530,11 +583,20 @@ function App() {
           </PanelGroup>
         </Panel>
 
-        <PanelResizeHandle className="w-px bg-zinc-800 hover:bg-zinc-600 transition-colors focus:outline-none cursor-col-resize" />
-
-        {/* Right Panel */}
-        <Panel defaultSize="20%" minSize="15%" maxSize="40%">
-          <div className="h-full w-full">
+        {/* Right Panel - only show when worktree is active and panel is open */}
+        <PanelResizeHandle
+          className={`w-px transition-colors focus:outline-none cursor-col-resize ${
+            activeWorktreeId && activeRightPanelState?.isOpen
+              ? 'bg-zinc-800 hover:bg-zinc-600'
+              : 'bg-transparent pointer-events-none'
+          }`}
+        />
+        <Panel
+          defaultSize={activeWorktreeId && activeRightPanelState?.isOpen ? "20%" : "0%"}
+          minSize={activeWorktreeId && activeRightPanelState?.isOpen ? "15%" : "0%"}
+          maxSize={activeWorktreeId && activeRightPanelState?.isOpen ? "40%" : "0%"}
+        >
+          <div className={activeWorktreeId && activeRightPanelState?.isOpen ? 'h-full w-full' : 'w-0 overflow-hidden'}>
             <RightPanel changedFiles={changedFiles} />
           </div>
         </Panel>
