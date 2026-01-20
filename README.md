@@ -1,8 +1,8 @@
 # One Man Band
 
-> I vibe-coded the crap out of this.
+A GUI git worktree orchestrator, primarily for AI-driven development. Heavily inspired by [Conductor](https://docs.conductor.build) and [Worktrunk](https://worktrunk.dev), with more focus on simplicity.
 
-A desktop application for macOS that orchestrates git worktrees and launches Claude Code CLI instances in each.
+> I vibe-coded the crap out of this.
 
 ## Features
 
@@ -42,6 +42,7 @@ npm run tauri build
 ```
 
 The built application will be available at:
+
 - `src-tauri/target/release/bundle/macos/One Man Band.app`
 - `src-tauri/target/release/bundle/dmg/One Man Band_*.dmg`
 
@@ -74,14 +75,6 @@ The built application will be available at:
 └─────────────────────────────────────────────────────────────┘
 ```
 
-## Usage
-
-1. **Add a Project**: Click the + button in the sidebar and select a git repository
-2. **Create a Workspace**: Click "Add workspace" under a project to create a new worktree
-3. **Start Working**: Select a workspace to open Claude Code CLI in that worktree
-4. **View Changes**: The right panel shows files changed in the active workspace
-5. **Terminal Access**: Use the terminal in the right panel for shell commands
-
 ## Data Storage
 
 - **Workspaces**: Created in `<repo>/.worktrees/<workspace-name>/` by default
@@ -96,13 +89,13 @@ Settings are stored in `~/.config/onemanband/config.jsonc`. The file is created 
   // Main terminal pane
   "main": {
     "fontFamily": "Menlo, Monaco, 'Courier New', monospace",
-    "fontSize": 13
+    "fontSize": 13,
   },
 
   // Shell terminal (bottom-right pane)
   "terminal": {
     "fontFamily": "Menlo, Monaco, 'Courier New', monospace",
-    "fontSize": 13
+    "fontSize": 13,
   },
 
   // Worktree settings
@@ -110,22 +103,23 @@ Settings are stored in `~/.config/onemanband/config.jsonc`. The file is created 
     // Directory for worktrees. Final path: {directory}/{workspace_name}
     // Supports placeholder: {{ repo_directory }} (the repo directory)
     // Default: "{{ repo_directory }}/.worktrees"
-    "directory": null,
+    "directory": "{{ repo_directory }}/.worktrees",
 
     // Copy settings for new worktrees
     "copy": {
       // Copy gitignored files (e.g., .env, node_modules)
       "gitIgnored": false,
       // Glob patterns to exclude from copying
-      "except": [".claude"]
-    }
-  }
+      "except": [".claude"],
+    },
+  },
 }
 ```
 
 ### Terminal Options
 
 Both `main` and `terminal` sections support:
+
 - **fontFamily**: CSS font-family string for the terminal
 - **fontSize**: Font size in pixels
 
