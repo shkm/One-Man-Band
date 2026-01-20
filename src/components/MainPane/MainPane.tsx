@@ -6,12 +6,14 @@ interface MainPaneProps {
   openWorktreeIds: Set<string>;
   activeWorktreeId: string | null;
   terminalConfig: TerminalConfig;
+  onWorktreeNotification?: (worktreeId: string, title: string, body: string) => void;
 }
 
 export function MainPane({
   openWorktreeIds,
   activeWorktreeId,
   terminalConfig,
+  onWorktreeNotification,
 }: MainPaneProps) {
   if (openWorktreeIds.size === 0 || !activeWorktreeId) {
     return (
@@ -38,6 +40,7 @@ export function MainPane({
             worktreeId={worktreeId}
             isActive={worktreeId === activeWorktreeId}
             terminalConfig={terminalConfig}
+            onNotification={(title, body) => onWorktreeNotification?.(worktreeId, title, body)}
           />
         </div>
       ))}
