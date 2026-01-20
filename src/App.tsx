@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
-import { Group as PanelGroup, Panel, Separator as PanelResizeHandle } from 'react-resizable-panels';
+import { Group as PanelGroup, Panel, Separator as PanelResizeHandle, PanelImperativeHandle } from 'react-resizable-panels';
 import { listen } from '@tauri-apps/api/event';
 import { Sidebar } from './components/Sidebar/Sidebar';
 import { MainPane } from './components/MainPane/MainPane';
@@ -69,6 +69,12 @@ function App() {
   const [pendingRemoveProject, setPendingRemoveProject] = useState<Project | null>(null);
   const [pendingMergeId, setPendingMergeId] = useState<string | null>(null);
   const [loadingWorktrees, setLoadingWorktrees] = useState<Set<string>>(new Set());
+
+  // Panel refs
+  const rightPanelRef = useRef<PanelImperativeHandle>(null);
+  const lastRightPanelSize = useRef<number>(280); // Track last open size in pixels
+  const drawerPanelRef = useRef<PanelImperativeHandle>(null);
+  const lastDrawerSize = useRef<number>(250); // Track last open size in pixels
 
   // Derived values
   const activeWorktree = useMemo(() => {
@@ -140,12 +146,54 @@ function App() {
 
   const { files: changedFiles } = useGitStatus(activeWorktree);
 
+  // Sync right panel collapse state when worktree changes
+  useEffect(() => {
+    const panel = rightPanelRef.current;
+    if (!panel) return;
+
+    const shouldBeOpen = activeWorktreeId && activeRightPanelState?.isOpen;
+    const isCollapsed = panel.isCollapsed();
+
+    if (shouldBeOpen && isCollapsed) {
+      panel.resize(lastRightPanelSize.current);
+    } else if (!shouldBeOpen && !isCollapsed) {
+      panel.collapse();
+    }
+  }, [activeWorktreeId, activeRightPanelState?.isOpen]);
+
+  // Sync drawer collapse state when worktree changes
+  useEffect(() => {
+    const panel = drawerPanelRef.current;
+    if (!panel) return;
+
+    const shouldBeOpen = activeWorktreeId && activeDrawerState?.isOpen;
+    const isCollapsed = panel.isCollapsed();
+
+    if (shouldBeOpen && isCollapsed) {
+      panel.resize(lastDrawerSize.current);
+    } else if (!shouldBeOpen && !isCollapsed) {
+      panel.collapse();
+    }
+  }, [activeWorktreeId, activeDrawerState?.isOpen]);
+
   // Toggle drawer handler (used by both keyboard shortcut and button)
   const handleToggleDrawer = useCallback(() => {
     if (!activeWorktreeId) return;
+
+    const panel = drawerPanelRef.current;
+    const currentState = drawerStates.get(activeWorktreeId) ?? createDefaultDrawerState();
+    const willOpen = !currentState.isOpen;
+
+    if (panel) {
+      if (willOpen) {
+        panel.resize(lastDrawerSize.current);
+      } else {
+        panel.collapse();
+      }
+    }
+
     setDrawerStates((prev) => {
       const current = prev.get(activeWorktreeId) ?? createDefaultDrawerState();
-      const willOpen = !current.isOpen;
       const next = new Map(prev);
 
       // Create first tab if opening drawer with no tabs
@@ -166,15 +214,64 @@ function App() {
       }
       return next;
     });
-  }, [activeWorktreeId]);
+  }, [activeWorktreeId, drawerStates]);
 
   // Toggle right panel handler
   const handleToggleRightPanel = useCallback(() => {
     if (!activeWorktreeId) return;
+
+    const panel = rightPanelRef.current;
+    if (panel) {
+      if (panel.isCollapsed()) {
+        // Restore to last known size
+        panel.resize(lastRightPanelSize.current);
+      } else {
+        panel.collapse();
+      }
+    }
+
     setRightPanelStates((prev) => {
       const current = prev.get(activeWorktreeId) ?? createDefaultRightPanelState();
       const next = new Map(prev);
       next.set(activeWorktreeId, { isOpen: !current.isOpen });
+      return next;
+    });
+  }, [activeWorktreeId]);
+
+  // Sync state when right panel is collapsed/expanded via dragging
+  const handleRightPanelResize = useCallback((size: { inPixels: number }) => {
+    if (!activeWorktreeId) return;
+
+    // Track last open size (only when not collapsed)
+    if (size.inPixels >= 200) {
+      lastRightPanelSize.current = size.inPixels;
+    }
+
+    const isCollapsed = size.inPixels === 0;
+    setRightPanelStates((prev) => {
+      const current = prev.get(activeWorktreeId) ?? createDefaultRightPanelState();
+      if (current.isOpen === !isCollapsed) return prev; // No change needed
+      const next = new Map(prev);
+      next.set(activeWorktreeId, { isOpen: !isCollapsed });
+      return next;
+    });
+  }, [activeWorktreeId]);
+
+  // Sync state when drawer is collapsed/expanded via dragging
+  const handleDrawerResize = useCallback((size: { inPixels: number }) => {
+    if (!activeWorktreeId) return;
+
+    // Track last open size (only when not collapsed)
+    if (size.inPixels >= 100) {
+      lastDrawerSize.current = size.inPixels;
+    }
+
+    const isCollapsed = size.inPixels === 0;
+    setDrawerStates((prev) => {
+      const current = prev.get(activeWorktreeId) ?? createDefaultDrawerState();
+      if (current.isOpen === !isCollapsed) return prev; // No change needed
+      const next = new Map(prev);
+      next.set(activeWorktreeId, { ...current, isOpen: !isCollapsed });
       return next;
     });
   }, [activeWorktreeId]);
@@ -487,7 +584,7 @@ function App() {
         onLayoutChange={() => { window.dispatchEvent(new Event('resize')); }}
       >
         {/* Sidebar */}
-        <Panel defaultSize="15%" minSize="10%" maxSize="30%">
+        <Panel defaultSize="200px" minSize="150px" maxSize="350px">
           <div className="h-full w-full">
             <Sidebar
               projects={projects}
@@ -513,14 +610,14 @@ function App() {
 
         <PanelResizeHandle className="w-px bg-zinc-800 hover:bg-zinc-600 transition-colors focus:outline-none cursor-col-resize" />
 
-        {/* Main Pane with Drawer - vertical layout */}
-        <Panel defaultSize="65%" minSize="30%">
+        {/* Main Pane with Drawer - vertical layout (flex to fill remaining space) */}
+        <Panel minSize="300px">
           <PanelGroup
             orientation="vertical"
             className="h-full"
             onLayoutChange={() => { window.dispatchEvent(new Event('resize')); }}
           >
-            <Panel defaultSize={activeDrawerState?.isOpen ? "70%" : "100%"} minSize="30%">
+            <Panel minSize="200px">
               <MainPane
                 openWorktreeIds={openWorktreeIds}
                 activeWorktreeId={activeWorktreeId}
@@ -528,7 +625,7 @@ function App() {
               />
             </Panel>
 
-            {/* Drawer Panel - always rendered to keep terminals alive */}
+            {/* Drawer Panel - collapsible */}
             <PanelResizeHandle
               className={`h-px transition-colors focus:outline-none cursor-row-resize ${
                 activeDrawerState?.isOpen
@@ -537,11 +634,15 @@ function App() {
               }`}
             />
             <Panel
-              defaultSize={activeDrawerState?.isOpen ? "30%" : "0%"}
-              minSize={activeDrawerState?.isOpen ? "15%" : "0%"}
-              maxSize={activeDrawerState?.isOpen ? "70%" : "0%"}
+              panelRef={drawerPanelRef}
+              defaultSize="0px"
+              minSize="100px"
+              maxSize="70%"
+              collapsible
+              collapsedSize="0px"
+              onResize={handleDrawerResize}
             >
-              <div className={activeDrawerState?.isOpen ? 'h-full' : 'h-0 overflow-hidden'}>
+              <div className="h-full overflow-hidden">
                 <Drawer
                   isOpen={activeDrawerState?.isOpen ?? false}
                   worktreeId={activeWorktreeId}
@@ -583,7 +684,7 @@ function App() {
           </PanelGroup>
         </Panel>
 
-        {/* Right Panel - only show when worktree is active and panel is open */}
+        {/* Right Panel - collapsible */}
         <PanelResizeHandle
           className={`w-px transition-colors focus:outline-none cursor-col-resize ${
             activeWorktreeId && activeRightPanelState?.isOpen
@@ -592,11 +693,15 @@ function App() {
           }`}
         />
         <Panel
-          defaultSize={activeWorktreeId && activeRightPanelState?.isOpen ? "20%" : "0%"}
-          minSize={activeWorktreeId && activeRightPanelState?.isOpen ? "15%" : "0%"}
-          maxSize={activeWorktreeId && activeRightPanelState?.isOpen ? "40%" : "0%"}
+          panelRef={rightPanelRef}
+          defaultSize="0px"
+          minSize="200px"
+          maxSize="450px"
+          collapsible
+          collapsedSize="0px"
+          onResize={handleRightPanelResize}
         >
-          <div className={activeWorktreeId && activeRightPanelState?.isOpen ? 'h-full w-full' : 'w-0 overflow-hidden'}>
+          <div className="h-full w-full overflow-hidden">
             <RightPanel changedFiles={changedFiles} />
           </div>
         </Panel>
