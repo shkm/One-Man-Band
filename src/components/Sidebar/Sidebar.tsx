@@ -102,7 +102,7 @@ export function Sidebar({
           {projects.map((project) => {
             const hasOpenWorktrees = project.worktrees.some((w) => openWorktreeIds.has(w.id));
             return (
-            <div key={project.id} className="mb-1">
+            <div key={project.id} className="mb-2">
               <div
                 className={`group relative flex items-center gap-1 px-1.5 py-1 rounded hover:bg-zinc-800 ${
                   hasOpenWorktrees ? 'text-zinc-300' : 'text-zinc-500'
