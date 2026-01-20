@@ -104,7 +104,7 @@ export function Sidebar({
             return (
             <div key={project.id} className="mb-1">
               <div
-                className={`group flex items-center gap-1 px-1.5 py-1 rounded hover:bg-zinc-800 ${
+                className={`group relative flex items-center gap-1 px-1.5 py-1 rounded hover:bg-zinc-800 ${
                   hasOpenWorktrees ? 'text-zinc-300' : 'text-zinc-500'
                 }`}
                 onClick={() => onToggleProject(project.id)}
@@ -115,25 +115,27 @@ export function Sidebar({
                 ) : (
                   <ChevronRight size={14} className={hasOpenWorktrees ? 'text-zinc-500' : 'text-zinc-600'} />
                 )}
-                <FolderGit2 size={14} className={hasOpenWorktrees ? 'text-zinc-400' : 'text-zinc-600'} />
-                <span className="text-sm truncate flex-1">{project.name}</span>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onAddWorktree(project.id);
-                  }}
-                  className="p-0.5 rounded hover:bg-zinc-700 text-zinc-500 hover:text-zinc-300 opacity-0 group-hover:opacity-100"
-                  title="Add Worktree"
-                >
-                  <Plus size={14} />
-                </button>
-                <button
-                  onClick={(e) => handleKebabClick(e, project)}
-                  className="p-0.5 rounded hover:bg-zinc-700 text-zinc-500 hover:text-zinc-300 opacity-0 group-hover:opacity-100"
-                  title="More options"
-                >
-                  <MoreHorizontal size={14} />
-                </button>
+                <FolderGit2 size={14} className="flex-shrink-0" style={{ color: hasOpenWorktrees ? '#a1a1aa' : '#52525b' }} />
+                <span className="text-sm truncate">{project.name}</span>
+                <div className="absolute right-1 hidden group-hover:flex items-center gap-0.5 bg-zinc-800 rounded">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onAddWorktree(project.id);
+                    }}
+                    className="p-0.5 rounded hover:bg-zinc-700 text-zinc-500 hover:text-zinc-300"
+                    title="Add Worktree"
+                  >
+                    <Plus size={14} />
+                  </button>
+                  <button
+                    onClick={(e) => handleKebabClick(e, project)}
+                    className="p-0.5 rounded hover:bg-zinc-700 text-zinc-500 hover:text-zinc-300"
+                    title="More options"
+                  >
+                    <MoreHorizontal size={14} />
+                  </button>
+                </div>
               </div>
 
               {expandedProjects.has(project.id) && (
@@ -155,7 +157,7 @@ export function Sidebar({
                         <div
                           key={worktree.id}
                           onClick={() => onSelectWorktree(worktree)}
-                          className={`group/worktree flex items-center gap-1.5 px-1.5 py-1 rounded text-sm ${
+                          className={`group/worktree relative flex items-center gap-1.5 px-1.5 py-1 rounded text-sm ${
                             isSelected
                               ? 'bg-zinc-700 text-zinc-100'
                               : isOpen
@@ -163,20 +165,20 @@ export function Sidebar({
                                 : 'text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300'
                           }`}
                         >
-                          <GitBranch size={12} className={isOpen ? '' : 'opacity-50'} />
-                          <span className="truncate flex-1">{worktree.name}</span>
+                          <GitBranch size={12} className={`flex-shrink-0 ${isOpen ? '' : 'opacity-50'}`} />
+                          <span className="truncate">{worktree.name}</span>
                           {isLoading ? (
-                            <span title="Starting...">
+                            <span className="absolute right-1" title="Starting...">
                               <Loader2 size={12} className="animate-spin text-blue-400" />
                             </span>
                           ) : (
-                            <>
+                            <div className={`absolute right-1 hidden group-hover/worktree:flex items-center gap-0.5 rounded ${isSelected ? 'bg-zinc-700' : 'bg-zinc-800'}`}>
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   onDeleteWorktree(worktree.id);
                                 }}
-                                className="p-0.5 rounded hover:bg-zinc-600 text-zinc-500 hover:text-red-400 opacity-0 group-hover/worktree:opacity-100"
+                                className="p-0.5 rounded hover:bg-zinc-600 text-zinc-500 hover:text-red-400"
                                 title="Delete Worktree"
                               >
                                 <Trash2 size={12} />
@@ -187,13 +189,13 @@ export function Sidebar({
                                     e.stopPropagation();
                                     onCloseWorktree(worktree.id);
                                   }}
-                                  className="p-0.5 rounded hover:bg-zinc-600 text-zinc-500 hover:text-zinc-300 opacity-0 group-hover/worktree:opacity-100"
+                                  className="p-0.5 rounded hover:bg-zinc-600 text-zinc-500 hover:text-zinc-300"
                                   title="Close Worktree"
                                 >
                                   <X size={12} />
                                 </button>
                               )}
-                            </>
+                            </div>
                           )}
                         </div>
                       );
