@@ -269,9 +269,11 @@ function App() {
     const isCollapsed = size.inPixels === 0;
     setDrawerStates((prev) => {
       const current = prev.get(activeWorktreeId) ?? createDefaultDrawerState();
-      if (current.isOpen === !isCollapsed) return prev; // No change needed
+      // Don't mark as open if there are no tabs (nothing to show)
+      const shouldBeOpen = !isCollapsed && current.tabs.length > 0;
+      if (current.isOpen === shouldBeOpen) return prev; // No change needed
       const next = new Map(prev);
-      next.set(activeWorktreeId, { ...current, isOpen: !isCollapsed });
+      next.set(activeWorktreeId, { ...current, isOpen: shouldBeOpen });
       return next;
     });
   }, [activeWorktreeId]);
