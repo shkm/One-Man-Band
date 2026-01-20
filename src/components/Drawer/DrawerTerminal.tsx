@@ -194,10 +194,11 @@ export function DrawerTerminal({ id, worktreeId, isActive, terminalConfig }: Dra
   }, [isActive]);
 
   return (
-    <div
-      ref={containerRef}
-      className="w-full h-full"
-      style={{ backgroundColor: '#18181b' }}
-    />
+    <div className="w-full h-full p-2" style={{ backgroundColor: '#18181b' }}>
+      <div
+        ref={containerRef}
+        className="w-full h-full"
+      />
+    </div>
   );
 }
