@@ -170,16 +170,30 @@ export function Sidebar({
                               <Loader2 size={12} className="animate-spin text-blue-400" />
                             </span>
                           ) : (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onDeleteWorktree(worktree.id);
-                              }}
-                              className="p-0.5 rounded hover:bg-zinc-600 text-zinc-500 hover:text-red-400 opacity-0 group-hover/worktree:opacity-100"
-                              title="Delete Worktree"
-                            >
-                              <Trash2 size={12} />
-                            </button>
+                            <>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onDeleteWorktree(worktree.id);
+                                }}
+                                className="p-0.5 rounded hover:bg-zinc-600 text-zinc-500 hover:text-red-400 opacity-0 group-hover/worktree:opacity-100"
+                                title="Delete Worktree"
+                              >
+                                <Trash2 size={12} />
+                              </button>
+                              {isOpen && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onCloseWorktree(worktree.id);
+                                  }}
+                                  className="p-0.5 rounded hover:bg-zinc-600 text-zinc-500 hover:text-zinc-300 opacity-0 group-hover/worktree:opacity-100"
+                                  title="Close Worktree"
+                                >
+                                  <X size={12} />
+                                </button>
+                              )}
+                            </>
                           )}
                         </div>
                       );
@@ -243,13 +257,6 @@ export function Sidebar({
             title="Merge branch"
           >
             <GitMerge size={16} />
-          </button>
-          <button
-            onClick={() => onCloseWorktree(activeWorktreeId)}
-            className="p-1.5 rounded text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 flex-shrink-0"
-            title="Close worktree"
-          >
-            <X size={16} />
           </button>
           <button
             onClick={() => onDeleteWorktree(activeWorktreeId)}
