@@ -25,6 +25,8 @@ pub struct Worktree {
 pub struct FileChange {
     pub path: String,
     pub status: FileStatus,
+    pub insertions: Option<usize>,
+    pub deletions: Option<usize>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

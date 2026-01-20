@@ -16,6 +16,8 @@ export interface Worktree {
 export interface FileChange {
   path: string;
   status: 'added' | 'modified' | 'deleted' | 'renamed' | 'untracked';
+  insertions?: number;
+  deletions?: number;
 }
 
 export interface PtyOutput {

@@ -132,7 +132,53 @@ pub fn delete_worktree(repo_path: &Path, worktree_name: &str) -> Result<(), GitE
 }
 
 pub fn get_changed_files(worktree_path: &Path) -> Result<Vec<FileChange>, GitError> {
+    use std::collections::HashMap;
+    use std::process::Command;
+
     let repo = Repository::open(worktree_path)?;
+
+    // Get diff stats using git diff --numstat (for both staged and unstaged)
+    let mut diff_stats: HashMap<String, (usize, usize)> = HashMap::new();
+
+    // Unstaged changes
+    if let Ok(output) = Command::new("git")
+        .args(["diff", "--numstat"])
+        .current_dir(worktree_path)
+        .output()
+    {
+        if output.status.success() {
+            for line in String::from_utf8_lossy(&output.stdout).lines() {
+                let parts: Vec<&str> = line.split('\t').collect();
+                if parts.len() >= 3 {
+                    let insertions = parts[0].parse().unwrap_or(0);
+                    let deletions = parts[1].parse().unwrap_or(0);
+                    let path = parts[2].to_string();
+                    diff_stats.insert(path, (insertions, deletions));
+                }
+            }
+        }
+    }
+
+    // Staged changes
+    if let Ok(output) = Command::new("git")
+        .args(["diff", "--cached", "--numstat"])
+        .current_dir(worktree_path)
+        .output()
+    {
+        if output.status.success() {
+            for line in String::from_utf8_lossy(&output.stdout).lines() {
+                let parts: Vec<&str> = line.split('\t').collect();
+                if parts.len() >= 3 {
+                    let insertions = parts[0].parse().unwrap_or(0);
+                    let deletions = parts[1].parse().unwrap_or(0);
+                    let path = parts[2].to_string();
+                    let entry = diff_stats.entry(path).or_insert((0, 0));
+                    entry.0 += insertions;
+                    entry.1 += deletions;
+                }
+            }
+        }
+    }
 
     let mut opts = StatusOptions::new();
     opts.include_untracked(true)
@@ -168,9 +214,13 @@ pub fn get_changed_files(worktree_path: &Path) -> Result<Vec<FileChange>, GitErr
                 continue;
             };
 
+            let (insertions, deletions) = diff_stats.get(path).copied().unwrap_or((0, 0));
+
             changes.push(FileChange {
                 path: path.to_string(),
                 status: file_status,
+                insertions: if insertions > 0 || deletions > 0 { Some(insertions) } else { None },
+                deletions: if insertions > 0 || deletions > 0 { Some(deletions) } else { None },
             });
         }
     }
