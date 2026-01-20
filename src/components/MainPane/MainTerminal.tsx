@@ -146,6 +146,11 @@ export function MainTerminal({ worktreeId, isActive, terminalConfig }: MainTermi
 
       spawnedAtRef.current = Date.now();
       await spawnRef.current(worktreeId, 'main', cols, rows);
+
+      // If component unmounted while spawning, kill the PTY immediately
+      if (!isMounted) {
+        killRef.current();
+      }
     };
 
     initPty().catch(console.error);

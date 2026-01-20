@@ -56,6 +56,9 @@ export function DrawerTerminal({ id, worktreeId, isActive, terminalConfig }: Dra
     if (!containerRef.current || initializedRef.current) return;
     initializedRef.current = true;
 
+    // Track if component is still mounted (for StrictMode double-mount handling)
+    let isMounted = true;
+
     const terminal = new Terminal({
       cursorBlink: true,
       cursorStyle: 'block',
@@ -113,15 +116,23 @@ export function DrawerTerminal({ id, worktreeId, isActive, terminalConfig }: Dra
     const initPty = async () => {
       // Wait for next frame to ensure container is laid out
       await new Promise(resolve => requestAnimationFrame(resolve));
+      if (!isMounted) return; // Component unmounted during wait
+
       fitAddon.fit();
       const cols = terminal.cols;
       const rows = terminal.rows;
       await spawnRef.current(worktreeId, 'shell', cols, rows);
+
+      // If component unmounted while spawning, kill the PTY immediately
+      if (!isMounted) {
+        killRef.current();
+      }
     };
 
     initPty().catch(console.error);
 
     return () => {
+      isMounted = false;
       onDataDisposable.dispose();
       terminal.dispose();
       terminalRef.current = null;
