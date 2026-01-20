@@ -312,6 +312,17 @@ function App() {
   // Close drawer tab handler
   const handleCloseDrawerTab = useCallback((tabId: string) => {
     if (!activeWorktreeId) return;
+
+    const current = drawerStates.get(activeWorktreeId);
+    if (!current) return;
+
+    const remaining = current.tabs.filter(t => t.id !== tabId);
+
+    // If closing the last tab, collapse the drawer panel
+    if (remaining.length === 0) {
+      drawerPanelRef.current?.collapse();
+    }
+
     setDrawerStates((prev) => {
       const current = prev.get(activeWorktreeId);
       if (!current) return prev;
@@ -329,7 +340,7 @@ function App() {
       }
       return next;
     });
-  }, [activeWorktreeId]);
+  }, [activeWorktreeId, drawerStates]);
 
   // Keyboard shortcuts
   useEffect(() => {
