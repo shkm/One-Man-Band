@@ -55,9 +55,10 @@ pub fn watch_worktree(app: AppHandle, worktree_id: String, worktree_path: String
             return;
         }
 
-        // Debounce timer
-        let mut last_event = std::time::Instant::now();
+        // Trailing-edge debounce: wait until no events for this duration
         let debounce_duration = Duration::from_millis(500);
+        let mut pending_update = false;
+        let mut last_event_time = std::time::Instant::now();
 
         loop {
             // Check for stop signal
@@ -66,32 +67,34 @@ pub fn watch_worktree(app: AppHandle, worktree_id: String, worktree_path: String
                 break;
             }
 
-            match rx.recv_timeout(Duration::from_secs(1)) {
+            // Use short timeout to check for debounce expiry
+            match rx.recv_timeout(Duration::from_millis(100)) {
                 Ok(Ok(_event)) => {
-                    let now = std::time::Instant::now();
-                    if now.duration_since(last_event) > debounce_duration {
-                        last_event = now;
-
-                        // Wait a bit for transient files (editor temps) to settle
-                        thread::sleep(Duration::from_millis(100));
-
-                        // Get changed files
-                        if let Ok(files) = git::get_changed_files(path) {
-                            let _ = app.emit(
-                                "files-changed",
-                                FilesChanged {
-                                    worktree_path: worktree_path.clone(),
-                                    files,
-                                },
-                            );
-                        }
-                    }
+                    // New event: mark pending and reset timer
+                    pending_update = true;
+                    last_event_time = std::time::Instant::now();
                 }
                 Ok(Err(e)) => {
                     eprintln!("Watch error: {}", e);
                 }
                 Err(_) => {
-                    // Timeout, continue watching
+                    // Timeout - check if we should process pending update
+                }
+            }
+
+            // Process pending update after debounce period of quiet
+            if pending_update && last_event_time.elapsed() >= debounce_duration {
+                pending_update = false;
+
+                // Get changed files and emit
+                if let Ok(files) = git::get_changed_files(path) {
+                    let _ = app.emit(
+                        "files-changed",
+                        FilesChanged {
+                            worktree_path: worktree_path.clone(),
+                            files,
+                        },
+                    );
                 }
             }
         }
