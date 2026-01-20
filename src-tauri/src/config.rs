@@ -6,6 +6,49 @@ use std::path::PathBuf;
 pub struct Config {
     pub claude: TerminalConfig,
     pub terminal: TerminalConfig,
+    pub worktree: WorktreeConfig,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct WorktreeConfig {
+    /// Directory where worktrees are created.
+    /// Supports placeholder: {{ repo_directory }} (the repository directory)
+    /// Final path: {directory}/{workspace_name}
+    /// Default: {{ repo_directory }}/.worktrees
+    pub directory: Option<String>,
+
+    /// Configuration for copying files to new worktrees
+    pub copy: CopyConfig,
+}
+
+impl Default for WorktreeConfig {
+    fn default() -> Self {
+        Self {
+            directory: None,
+            copy: CopyConfig::default(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct CopyConfig {
+    /// Copy gitignored files from the project to new worktrees
+    #[serde(rename = "gitIgnored")]
+    pub gitignored: bool,
+
+    /// Glob patterns to exclude from copying
+    pub except: Vec<String>,
+}
+
+impl Default for CopyConfig {
+    fn default() -> Self {
+        Self {
+            gitignored: false,
+            except: vec![".claude".to_string()],
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -55,6 +98,22 @@ pub fn load_config() -> Config {
   "terminal": {
     "fontFamily": "Menlo, Monaco, 'Courier New', monospace",
     "fontSize": 13
+  },
+
+  // Worktree settings
+  "worktree": {
+    // Directory for worktrees. Final path: {directory}/{workspace_name}
+    // Supports placeholder: {{ repo_directory }} (the repo directory)
+    // Default: "{{ repo_directory }}/.worktrees"
+    "directory": null,
+
+    // Copy settings for new worktrees
+    "copy": {
+      // Copy gitignored files (e.g., .env, node_modules)
+      "gitIgnored": false,
+      // Glob patterns to exclude from copying (default: [".claude"])
+      "except": [".claude"]
+    }
   }
 }
 "#;

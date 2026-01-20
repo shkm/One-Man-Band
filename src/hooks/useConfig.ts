@@ -6,9 +6,14 @@ export interface TerminalConfig {
   fontSize: number;
 }
 
+export interface WorkspaceConfig {
+  copyGitignored: boolean;
+}
+
 export interface Config {
   claude: TerminalConfig;
   terminal: TerminalConfig;
+  workspace: WorkspaceConfig;
 }
 
 const defaultConfig: Config = {
@@ -19,6 +24,9 @@ const defaultConfig: Config = {
   terminal: {
     fontFamily: "Menlo, Monaco, 'Courier New', monospace",
     fontSize: 13,
+  },
+  workspace: {
+    copyGitignored: false,
   },
 };
 

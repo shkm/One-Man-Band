@@ -39,10 +39,32 @@ pub fn generate_workspace_name() -> String {
     format!("{}-{}", adj, animal)
 }
 
-pub fn get_workspaces_dir() -> PathBuf {
-    dirs::home_dir()
-        .unwrap_or_else(|| PathBuf::from("/tmp"))
-        .join(".workspaces")
+/// Resolve worktree directory with placeholder support.
+/// Supported placeholders:
+/// - {{ repo_directory }} - the repository directory
+///
+/// The final worktree path will be: {resolved_directory}/{workspace_name}
+/// Default: {{ repo_directory }}/.worktrees
+pub fn resolve_worktree_directory(
+    worktree_directory: Option<&str>,
+    project_path: &Path,
+) -> PathBuf {
+    let repo_directory = project_path.to_string_lossy().to_string();
+
+    let dir = worktree_directory.unwrap_or("{{ repo_directory }}/.worktrees");
+
+    let resolved = dir
+        .replace("{{ repo_directory }}", &repo_directory)
+        .replace("{{repo_directory}}", &repo_directory);
+
+    // Expand ~ to home directory
+    if resolved.starts_with("~/") {
+        dirs::home_dir()
+            .unwrap_or_else(|| PathBuf::from("/tmp"))
+            .join(&resolved[2..])
+    } else {
+        PathBuf::from(resolved)
+    }
 }
 
 pub fn create_project(path: &Path) -> Result<Project, WorkspaceError> {
@@ -61,18 +83,18 @@ pub fn create_project(path: &Path) -> Result<Project, WorkspaceError> {
 pub fn create_workspace(
     project: &mut Project,
     name: Option<String>,
+    worktree_directory: Option<&str>,
 ) -> Result<Workspace, WorkspaceError> {
     let workspace_name = name.unwrap_or_else(generate_workspace_name);
 
     // Create workspace directory
-    let workspaces_base = get_workspaces_dir();
-    let repo_workspaces = workspaces_base.join(&project.name);
-    let workspace_path = repo_workspaces.join(&workspace_name);
+    let project_path = Path::new(&project.path);
+    let worktree_base = resolve_worktree_directory(worktree_directory, project_path);
+    let workspace_path = worktree_base.join(&workspace_name);
 
-    std::fs::create_dir_all(&repo_workspaces)?;
+    std::fs::create_dir_all(&worktree_base)?;
 
     // Create git worktree
-    let project_path = Path::new(&project.path);
     git::create_worktree(project_path, &workspace_path, &workspace_name)?;
 
     let workspace = Workspace {
@@ -86,6 +108,76 @@ pub fn create_workspace(
     project.workspaces.push(workspace.clone());
 
     Ok(workspace)
+}
+
+/// Copy gitignored files from the project to the workspace, excluding patterns in `except`
+pub fn copy_gitignored_files(
+    project_path: &Path,
+    workspace_path: &Path,
+    except: &[String],
+) -> Result<(), WorkspaceError> {
+    let ignored_files = git::get_ignored_files(project_path)?;
+
+    // Compile glob patterns for exceptions
+    let patterns: Vec<glob::Pattern> = except
+        .iter()
+        .filter_map(|p| glob::Pattern::new(p).ok())
+        .collect();
+
+    for file_path in ignored_files {
+        // Check if this path matches any exception pattern
+        let should_skip = patterns.iter().any(|pattern| {
+            // Match against the file path and also check if it starts with the pattern
+            // (to handle directories like ".claude" matching ".claude/foo")
+            pattern.matches(&file_path)
+                || file_path.starts_with(&format!("{}/", pattern.as_str()))
+                || file_path == pattern.as_str()
+        });
+
+        if should_skip {
+            continue;
+        }
+
+        let src = project_path.join(&file_path);
+        let dst = workspace_path.join(&file_path);
+
+        // Skip if source doesn't exist (shouldn't happen, but be safe)
+        if !src.exists() {
+            continue;
+        }
+
+        // Create parent directories if needed
+        if let Some(parent) = dst.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+
+        // Copy file or directory
+        if src.is_dir() {
+            copy_dir_recursive(&src, &dst)?;
+        } else {
+            std::fs::copy(&src, &dst)?;
+        }
+    }
+
+    Ok(())
+}
+
+fn copy_dir_recursive(src: &Path, dst: &Path) -> Result<(), std::io::Error> {
+    std::fs::create_dir_all(dst)?;
+
+    for entry in std::fs::read_dir(src)? {
+        let entry = entry?;
+        let src_path = entry.path();
+        let dst_path = dst.join(entry.file_name());
+
+        if src_path.is_dir() {
+            copy_dir_recursive(&src_path, &dst_path)?;
+        } else {
+            std::fs::copy(&src_path, &dst_path)?;
+        }
+    }
+
+    Ok(())
 }
 
 pub fn delete_workspace(project: &mut Project, workspace_id: &str) -> Result<(), WorkspaceError> {

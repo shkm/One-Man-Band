@@ -147,3 +147,34 @@ pub fn get_changed_files(workspace_path: &Path) -> Result<Vec<FileChange>, GitEr
 
     Ok(changes)
 }
+
+/// Get a list of gitignored files in the repository.
+/// Uses `git status --ignored --porcelain -uall` to get all ignored files,
+/// including individual files inside ignored directories.
+pub fn get_ignored_files(repo_path: &Path) -> Result<Vec<String>, GitError> {
+    use std::process::Command;
+
+    let output = Command::new("git")
+        .args(["status", "--ignored", "--porcelain", "-uall"])
+        .current_dir(repo_path)
+        .output()?;
+
+    if !output.status.success() {
+        return Err(GitError::Io(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            "git status failed",
+        )));
+    }
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let mut ignored_files = Vec::new();
+
+    for line in stdout.lines() {
+        // Ignored files start with "!! "
+        if let Some(path) = line.strip_prefix("!! ") {
+            ignored_files.push(path.to_string());
+        }
+    }
+
+    Ok(ignored_files)
+}

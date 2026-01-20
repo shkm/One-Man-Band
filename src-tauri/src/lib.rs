@@ -54,6 +54,7 @@ fn create_workspace(
     project_path: &str,
     name: Option<String>,
 ) -> Result<Workspace> {
+    let cfg = config::load_config();
     let mut persisted = state.persisted.write();
 
     let project = persisted
@@ -62,7 +63,24 @@ fn create_workspace(
         .find(|p| p.path == project_path)
         .ok_or_else(|| format!("Project not found: {}", project_path))?;
 
-    let ws = workspace::create_workspace(project, name).map_err(map_err)?;
+    let project_path_buf = Path::new(&project.path).to_path_buf();
+    let ws = workspace::create_workspace(
+        project,
+        name,
+        cfg.worktree.directory.as_deref(),
+    )
+    .map_err(map_err)?;
+
+    // Copy gitignored files if enabled in config
+    if cfg.worktree.copy.gitignored {
+        let workspace_path = Path::new(&ws.path);
+        workspace::copy_gitignored_files(
+            &project_path_buf,
+            workspace_path,
+            &cfg.worktree.copy.except,
+        )
+        .map_err(map_err)?;
+    }
 
     // Start file watcher for this workspace
     watcher::watch_workspace(app.clone(), ws.id.clone(), ws.path.clone());
