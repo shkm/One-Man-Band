@@ -27,30 +27,55 @@
 
 <br />
 
-Heavily inspired by [Conductor](https://docs.conductor.build) and [Worktrunk](https://worktrunk.dev), with more focus on simplicity.
-
 > [!WARNING]
-> Currently early and everything is subject to change/break between versions.
-> Also I used a whole lot of AI to build this.
+> This project is in early development. It's written with heavy AI assistance.
+
+## What is this?
+
+This is a git worktree orchestrator, designed for an AI-centric development workflow.
+
+What does that mean? Let's start with the problem.
+
+> LLM development flows involve a lot of waiting
+
+Once an LLM gets going, it could take a while before user input is next required. [It's the new compiling](https://xkcd.com/303/),
+where you go do something else for a bit. Stretch your legs, grab a coffee, read a little, interact with coworkers. Please don't stop doing those things — those things are all good and healthy!
+
+But sometimes you want to power through and get more work done. That's where git worktrees come in.
+
+### Git Worktrees
+
+A [git worktree](https://git-scm.com/docs/git-worktree) lets you check out multiple branches in separate directories. This means we can run a separate instance of our LLM of choice in each directory, each contributing to its own feature branch in isolation. They're a perfect fit for LLMs, so their usage is growing by the day.
+
+### Worktree management
+
+But there are a couple of problems. Firstly, you have a bunch of new commands to memorise. Not to worry: aliases to the rescue. But then you notice that worktrees don't include ignored files so those will need to be copied every time one is created. You might need to run a couple of specialised commands per repo — generate some assets, copy a database, etc. Suddenly, creating a worktree becomes more complex.
+
+And what about tasks that should run once per repository? Sure, you could stop and start a web server when you need a preview in a different worktree, but it would be a lot easier to just give each its own port.
+
+Finally, task switching itself can be a chore. One terminal tab per worktree sounds reasonable, but what about additional context? Each workspace has its own changeset to browse, and I often find myself manually running commands.
+
+### Alternatives
+
+So I went looking for other options. [Conductor](https://docs.conductor.build) opened my eyes to how productive a polished workflow around worktrees can be. But I found Conductor a bit too heavy-handed for my uses, so I switched down to [Worktrunk](https://worktrunk.dev). Both fantastic pieces of software, but once again it wasn't a fit — I missed what I could do with a GUI.
+
+### Enter: One Man Band
+
+So that's why I built One Man Band (see what I did there?). Now I can run Claude, or any other terminal-based LLM, without losing the potential of rich GUI interactions. And that potential isn't yet realised, but we're getting there...
 
 ## Features
 
 - **Project Management** — Add git repositories and manage multiple worktrees
 - **Worktree Orchestration** — Create isolated git worktrees with random names (e.g., "fuzzy-tiger")
 - **Configurable Main Command** — Launch Claude, Aider, or any CLI tool in each worktree
-- **File Watching** — Real-time display of changed files in each worktree
-- **Terminal Access** — Shell access in each worktree for additional commands
+- **Change View** — Real-time display of changed files in each worktree
+- **Terminal Access** — Shell access in each worktree
+
+...and plenty more to flesh it out properly on the way.
 
 ## Installation
 
-Download the latest release for your platform from the [Releases](https://github.com/shkm/One-Man-Band/releases) page.
-
-| Platform              | Download         |
-| --------------------- | ---------------- |
-| macOS (Apple Silicon) | `.dmg` (aarch64) |
-| macOS (Intel)         | `.dmg` (x64)     |
-| Linux                 | `.AppImage`      |
-| Windows               | `.exe`           |
+At the moment, you're best off just running it from source. I'm still working on getting releases with notarization working, but you can check out the [Releases](https://github.com/shkm/One-Man-Band/releases) page.
 
 ## Technology Stack
 
@@ -66,7 +91,6 @@ Download the latest release for your platform from the [Releases](https://github
 
 - Node.js 18+
 - Rust 1.70+
-- Claude Code CLI installed (`claude` command available)
 
 ### Setup
 
@@ -128,7 +152,7 @@ Settings are stored in `~/.config/onemanband/config.jsonc`. The file is created 
 {
   // Main terminal pane (runs your AI coding tool)
   "main": {
-    "command": "claude", // Command to run: "claude", "aider", etc.
+    "command": "claude",
     "fontFamily": "Menlo, Monaco, 'Courier New', monospace",
     "fontSize": 13,
   },
@@ -139,13 +163,11 @@ Settings are stored in `~/.config/onemanband/config.jsonc`. The file is created 
     "fontSize": 13,
   },
 
-  // Worktree settings
   "worktree": {
     // Directory for worktrees. Final path: {directory}/{worktree_name}
     // Supports placeholder: {{ repo_directory }}
     "directory": "{{ repo_directory }}/.worktrees",
 
-    // Copy settings for new worktrees
     "copy": {
       // Copy gitignored files (e.g., .env, node_modules)
       "gitignored": false,
@@ -155,19 +177,6 @@ Settings are stored in `~/.config/onemanband/config.jsonc`. The file is created 
   },
 }
 ```
-
-### Terminal Options
-
-Both `main` and `terminal` sections support:
-
-- **fontFamily**: CSS font-family string for the terminal
-- **fontSize**: Font size in pixels
-
-### Worktree Options
-
-- **directory**: Base directory for worktrees with `{{ repo_directory }}` placeholder support
-- **copy.gitIgnored**: Copy gitignored files to new worktrees
-- **copy.except**: Glob patterns to exclude from copying (default: `[".claude"]`)
 
 ### Attribution
 
