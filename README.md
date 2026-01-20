@@ -1,17 +1,49 @@
-# One Man Band
+<div align="center">
+  <img src="src-tauri/icons/web/icon-512.png" alt="One Man Band" width="128" height="128" />
 
-A GUI git worktree orchestrator, primarily for AI-driven development. Heavily inspired by [Conductor](https://docs.conductor.build) and [Worktrunk](https://worktrunk.dev), with more focus on simplicity.
+  <h1>One Man Band</h1>
 
-> Currently early and everything is subject to change/break between verisons.
-> Also, I vibe-coded the crap out of this.
+  <p><strong>A GUI git worktree orchestrator for AI-driven development</strong></p>
+
+  <p>
+    <a href="https://github.com/shkm/One-Man-Band/releases"><img src="https://img.shields.io/github/v/release/shkm/One-Man-Band?style=flat-square" alt="Release" /></a>
+    <a href="https://github.com/shkm/One-Man-Band/blob/main/LICENSE"><img src="https://img.shields.io/github/license/shkm/One-Man-Band?style=flat-square" alt="License" /></a>
+    <a href="https://github.com/shkm/One-Man-Band/stargazers"><img src="https://img.shields.io/github/stars/shkm/One-Man-Band?style=flat-square" alt="Stars" /></a>
+  </p>
+
+  <p>
+    <a href="#features">Features</a> •
+    <a href="#installation">Installation</a> •
+    <a href="#configuration">Configuration</a> •
+    <a href="#development">Development</a>
+  </p>
+</div>
+
+<br />
+
+Heavily inspired by [Conductor](https://docs.conductor.build) and [Worktrunk](https://worktrunk.dev), with more focus on simplicity.
+
+> [!WARNING]
+> Currently early and everything is subject to change/break between versions.
 
 ## Features
 
-- **Project Management**: Add git repositories and manage multiple workspaces
-- **Worktree Orchestration**: Create isolated git worktrees with random names (e.g., "fuzzy-tiger")
-- **Main Terminal**: Launch Claude Code CLI in each workspace with a dedicated terminal
-- **File Watching**: Real-time display of changed files in each workspace
-- **Terminal Access**: Shell access in each workspace for additional commands
+- **Project Management** — Add git repositories and manage multiple worktrees
+- **Worktree Orchestration** — Create isolated git worktrees with random names (e.g., "fuzzy-tiger")
+- **Configurable Main Command** — Launch Claude, Aider, or any CLI tool in each worktree
+- **File Watching** — Real-time display of changed files in each worktree
+- **Terminal Access** — Shell access in each worktree for additional commands
+
+## Installation
+
+Download the latest release for your platform from the [Releases](https://github.com/shkm/One-Man-Band/releases) page.
+
+| Platform | Download |
+|----------|----------|
+| macOS (Apple Silicon) | `.dmg` (aarch64) |
+| macOS (Intel) | `.dmg` (x64) |
+| Linux | `.AppImage` |
+| Windows | `.exe` |
 
 ## Technology Stack
 
@@ -67,7 +99,7 @@ The built application will be available at:
 ┌─────────────────────────────────────────────────────────────┐
 │  Rust Backend                                               │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐       │
-│  │ WorkspaceMgr │  │   PtyMgr     │  │  FileWatcher │       │
+│  │ WorktreeMgr  │  │   PtyMgr     │  │  FileWatcher │       │
 │  └──────────────┘  └──────────────┘  └──────────────┘       │
 │         │                                                   │
 │  ┌──────────────┐                                           │
@@ -78,7 +110,7 @@ The built application will be available at:
 
 ## Data Storage
 
-- **Workspaces**: Created in `<repo>/.worktrees/<workspace-name>/` by default
+- **Worktrees**: Created in `<repo>/.worktrees/<worktree-name>/` by default
 - **State**: Persisted in `~/.onemanband/state.json`
 
 ## Configuration
@@ -87,33 +119,33 @@ Settings are stored in `~/.config/onemanband/config.jsonc`. The file is created 
 
 ```jsonc
 {
-  // Main terminal pane
+  // Main terminal pane (runs your AI coding tool)
   "main": {
+    "command": "claude",  // Command to run: "claude", "aider", etc.
     "fontFamily": "Menlo, Monaco, 'Courier New', monospace",
-    "fontSize": 13,
+    "fontSize": 13
   },
 
   // Shell terminal (bottom-right pane)
   "terminal": {
     "fontFamily": "Menlo, Monaco, 'Courier New', monospace",
-    "fontSize": 13,
+    "fontSize": 13
   },
 
   // Worktree settings
   "worktree": {
-    // Directory for worktrees. Final path: {directory}/{workspace_name}
-    // Supports placeholder: {{ repo_directory }} (the repo directory)
-    // Default: "{{ repo_directory }}/.worktrees"
+    // Directory for worktrees. Final path: {directory}/{worktree_name}
+    // Supports placeholder: {{ repo_directory }}
     "directory": "{{ repo_directory }}/.worktrees",
 
     // Copy settings for new worktrees
     "copy": {
       // Copy gitignored files (e.g., .env, node_modules)
-      "gitIgnored": false,
+      "gitignored": false,
       // Glob patterns to exclude from copying
-      "except": [".claude"],
-    },
-  },
+      "except": [".claude"]
+    }
+  }
 }
 ```
 
