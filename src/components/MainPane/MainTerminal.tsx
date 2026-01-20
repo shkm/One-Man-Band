@@ -256,13 +256,13 @@ export function MainTerminal({ worktreeId, isActive, terminalConfig }: MainTermi
     }
   }, [isActive, ptyId, debouncedResize]);
 
-  // Window resize handler
+  // Window resize handler - only listen when active to avoid unnecessary work
   useEffect(() => {
-    if (!ptyId) return;
+    if (!ptyId || !isActive) return;
 
     window.addEventListener('resize', debouncedResize);
     return () => window.removeEventListener('resize', debouncedResize);
-  }, [ptyId, debouncedResize]);
+  }, [ptyId, isActive, debouncedResize]);
 
   // Focus terminal when active
   useEffect(() => {
