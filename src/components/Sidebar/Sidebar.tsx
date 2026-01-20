@@ -1,4 +1,4 @@
-import { FolderGit2, Plus, ChevronRight, ChevronDown, GitBranch, MoreHorizontal, Trash2, Loader2 } from 'lucide-react';
+import { FolderGit2, Plus, ChevronRight, ChevronDown, GitBranch, MoreHorizontal, Trash2, Loader2, Terminal, GitMerge, X } from 'lucide-react';
 import { Project, Worktree } from '../../types';
 import { useState } from 'react';
 import { DragRegion } from '../DragRegion';
@@ -10,11 +10,15 @@ interface SidebarProps {
   openWorktreeIds: Set<string>;
   loadingWorktrees: Set<string>;
   expandedProjects: Set<string>;
+  isDrawerOpen: boolean;
   onToggleProject: (projectId: string) => void;
   onSelectWorktree: (worktree: Worktree) => void;
   onAddProject: () => void;
   onAddWorktree: (projectId: string) => void;
-  onDeleteWorktree: (worktree: Worktree) => void;
+  onDeleteWorktree: (worktreeId: string) => void;
+  onCloseWorktree: (worktreeId: string) => void;
+  onMergeWorktree: (worktreeId: string) => void;
+  onToggleDrawer: () => void;
   onRemoveProject: (project: Project) => void;
 }
 
@@ -24,11 +28,15 @@ export function Sidebar({
   openWorktreeIds,
   loadingWorktrees,
   expandedProjects,
+  isDrawerOpen,
   onToggleProject,
   onSelectWorktree,
   onAddProject,
   onAddWorktree,
   onDeleteWorktree,
+  onCloseWorktree,
+  onMergeWorktree,
+  onToggleDrawer,
   onRemoveProject,
 }: SidebarProps) {
   const [contextMenu, setContextMenu] = useState<{
@@ -161,7 +169,7 @@ export function Sidebar({
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                onDeleteWorktree(worktree);
+                                onDeleteWorktree(worktree.id);
                               }}
                               className="p-0.5 rounded hover:bg-zinc-600 text-zinc-500 hover:text-red-400 opacity-0 group-hover/worktree:opacity-100"
                               title="Delete Worktree"
@@ -201,6 +209,43 @@ export function Sidebar({
           ]}
           onClose={() => setContextMenu(null)}
         />
+      )}
+
+      {/* Status bar with worktree actions */}
+      {activeWorktreeId && (
+        <div className="flex items-center h-8 px-1 border-t border-zinc-800 flex-shrink-0">
+          <button
+            onClick={onToggleDrawer}
+            className={`p-1.5 rounded hover:bg-zinc-800 flex-shrink-0 ${
+              isDrawerOpen ? 'text-blue-400' : 'text-zinc-500 hover:text-zinc-300'
+            }`}
+            title="Toggle terminal (Ctrl+`)"
+          >
+            <Terminal size={16} />
+          </button>
+          <div className="flex-1" />
+          <button
+            onClick={() => onMergeWorktree(activeWorktreeId)}
+            className="p-1.5 rounded text-zinc-500 hover:text-blue-400 hover:bg-zinc-800 flex-shrink-0"
+            title="Merge branch"
+          >
+            <GitMerge size={16} />
+          </button>
+          <button
+            onClick={() => onCloseWorktree(activeWorktreeId)}
+            className="p-1.5 rounded text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 flex-shrink-0"
+            title="Close worktree"
+          >
+            <X size={16} />
+          </button>
+          <button
+            onClick={() => onDeleteWorktree(activeWorktreeId)}
+            className="p-1.5 rounded text-zinc-500 hover:text-red-400 hover:bg-zinc-800 flex-shrink-0"
+            title="Delete worktree"
+          >
+            <Trash2 size={16} />
+          </button>
+        </div>
       )}
     </div>
   );

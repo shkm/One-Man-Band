@@ -121,6 +121,91 @@ function App() {
     };
   }, []);
 
+  const { files: changedFiles } = useGitStatus(activeWorktree);
+
+  // Toggle drawer handler (used by both keyboard shortcut and button)
+  const handleToggleDrawer = useCallback(() => {
+    if (!activeWorktreeId) return;
+    setDrawerStates((prev) => {
+      const current = prev.get(activeWorktreeId) ?? createDefaultDrawerState();
+      const willOpen = !current.isOpen;
+      const next = new Map(prev);
+
+      // Create first tab if opening drawer with no tabs
+      if (willOpen && current.tabs.length === 0) {
+        const newCounter = current.tabCounter + 1;
+        const newTab: DrawerTab = {
+          id: `${activeWorktreeId}-drawer-${newCounter}`,
+          label: `Terminal ${newCounter}`,
+        };
+        next.set(activeWorktreeId, {
+          isOpen: true,
+          tabs: [newTab],
+          activeTabId: newTab.id,
+          tabCounter: newCounter,
+        });
+      } else {
+        next.set(activeWorktreeId, { ...current, isOpen: willOpen });
+      }
+      return next;
+    });
+  }, [activeWorktreeId]);
+
+  // Add new drawer tab handler
+  const handleAddDrawerTab = useCallback(() => {
+    if (!activeWorktreeId) return;
+    setDrawerStates((prev) => {
+      const current = prev.get(activeWorktreeId) ?? createDefaultDrawerState();
+      const newCounter = current.tabCounter + 1;
+      const newTab: DrawerTab = {
+        id: `${activeWorktreeId}-drawer-${newCounter}`,
+        label: `Terminal ${newCounter}`,
+      };
+      const next = new Map(prev);
+      next.set(activeWorktreeId, {
+        ...current,
+        tabs: [...current.tabs, newTab],
+        activeTabId: newTab.id,
+        tabCounter: newCounter,
+      });
+      return next;
+    });
+  }, [activeWorktreeId]);
+
+  // Select drawer tab handler
+  const handleSelectDrawerTab = useCallback((tabId: string) => {
+    if (!activeWorktreeId) return;
+    setDrawerStates((prev) => {
+      const current = prev.get(activeWorktreeId);
+      if (!current) return prev;
+      const next = new Map(prev);
+      next.set(activeWorktreeId, { ...current, activeTabId: tabId });
+      return next;
+    });
+  }, [activeWorktreeId]);
+
+  // Close drawer tab handler
+  const handleCloseDrawerTab = useCallback((tabId: string) => {
+    if (!activeWorktreeId) return;
+    setDrawerStates((prev) => {
+      const current = prev.get(activeWorktreeId);
+      if (!current) return prev;
+
+      const remaining = current.tabs.filter(t => t.id !== tabId);
+      const next = new Map(prev);
+
+      if (remaining.length === 0) {
+        next.set(activeWorktreeId, { ...current, isOpen: false, tabs: [], activeTabId: null });
+      } else {
+        const newActiveTabId = current.activeTabId === tabId
+          ? remaining[remaining.length - 1].id
+          : current.activeTabId;
+        next.set(activeWorktreeId, { ...current, tabs: remaining, activeTabId: newActiveTabId });
+      }
+      return next;
+    });
+  }, [activeWorktreeId]);
+
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -129,58 +214,28 @@ function App() {
       // Ctrl+` to toggle drawer
       if (e.ctrlKey && e.key === '`') {
         e.preventDefault();
-        setDrawerStates((prev) => {
-          const current = prev.get(activeWorktreeId) ?? createDefaultDrawerState();
-          const willOpen = !current.isOpen;
-          const next = new Map(prev);
-
-          // Create first tab if opening drawer with no tabs
-          if (willOpen && current.tabs.length === 0) {
-            const newCounter = current.tabCounter + 1;
-            const newTab: DrawerTab = {
-              id: `${activeWorktreeId}-drawer-${newCounter}`,
-              label: `Terminal ${newCounter}`,
-            };
-            next.set(activeWorktreeId, {
-              isOpen: true,
-              tabs: [newTab],
-              activeTabId: newTab.id,
-              tabCounter: newCounter,
-            });
-          } else {
-            next.set(activeWorktreeId, { ...current, isOpen: willOpen });
-          }
-          return next;
-        });
+        handleToggleDrawer();
       }
 
       // Cmd+T to add new terminal tab (when drawer is open)
       if ((e.metaKey || e.ctrlKey) && e.key === 't' && activeDrawerState?.isOpen) {
         e.preventDefault();
-        setDrawerStates((prev) => {
-          const current = prev.get(activeWorktreeId) ?? createDefaultDrawerState();
-          const newCounter = current.tabCounter + 1;
-          const newTab: DrawerTab = {
-            id: `${activeWorktreeId}-drawer-${newCounter}`,
-            label: `Terminal ${newCounter}`,
-          };
-          const next = new Map(prev);
-          next.set(activeWorktreeId, {
-            ...current,
-            tabs: [...current.tabs, newTab],
-            activeTabId: newTab.id,
-            tabCounter: newCounter,
-          });
-          return next;
-        });
+        handleAddDrawerTab();
+      }
+
+      // Cmd+W to close active terminal tab (when drawer is open)
+      // Always preventDefault to avoid closing the window
+      if ((e.metaKey || e.ctrlKey) && e.key === 'w' && activeDrawerState?.isOpen) {
+        e.preventDefault();
+        if (activeDrawerState.activeTabId) {
+          handleCloseDrawerTab(activeDrawerState.activeTabId);
+        }
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeWorktreeId, activeDrawerState?.isOpen]);
-
-  const { files: changedFiles } = useGitStatus(activeWorktree);
+  }, [activeWorktreeId, activeDrawerState?.isOpen, activeDrawerState?.activeTabId, handleToggleDrawer, handleAddDrawerTab, handleCloseDrawerTab]);
 
   // Worktree handlers
   const handleAddProject = useCallback(async () => {
@@ -330,58 +385,6 @@ function App() {
     }
   }, [removeProject, pendingRemoveProject, activeWorktreeId]);
 
-  // Drawer tab handlers
-  const handleSelectDrawerTab = useCallback((tabId: string) => {
-    if (!activeWorktreeId) return;
-    setDrawerStates((prev) => {
-      const current = prev.get(activeWorktreeId);
-      if (!current) return prev;
-      const next = new Map(prev);
-      next.set(activeWorktreeId, { ...current, activeTabId: tabId });
-      return next;
-    });
-  }, [activeWorktreeId]);
-
-  const handleCloseDrawerTab = useCallback((tabId: string) => {
-    if (!activeWorktreeId) return;
-    setDrawerStates((prev) => {
-      const current = prev.get(activeWorktreeId);
-      if (!current) return prev;
-
-      const remaining = current.tabs.filter(t => t.id !== tabId);
-      const next = new Map(prev);
-
-      if (remaining.length === 0) {
-        next.set(activeWorktreeId, { ...current, isOpen: false, tabs: [], activeTabId: null });
-      } else {
-        const newActiveTabId = current.activeTabId === tabId
-          ? remaining[remaining.length - 1].id
-          : current.activeTabId;
-        next.set(activeWorktreeId, { ...current, tabs: remaining, activeTabId: newActiveTabId });
-      }
-      return next;
-    });
-  }, [activeWorktreeId]);
-
-  const handleAddDrawerTab = useCallback(() => {
-    if (!activeWorktreeId) return;
-    setDrawerStates((prev) => {
-      const current = prev.get(activeWorktreeId) ?? createDefaultDrawerState();
-      const newCounter = current.tabCounter + 1;
-      const newTab: DrawerTab = {
-        id: `${activeWorktreeId}-drawer-${newCounter}`,
-        label: `Terminal ${newCounter}`,
-      };
-      const next = new Map(prev);
-      next.set(activeWorktreeId, {
-        ...current,
-        tabs: [...current.tabs, newTab],
-        activeTabId: newTab.id,
-        tabCounter: newCounter,
-      });
-      return next;
-    });
-  }, [activeWorktreeId]);
 
   const pendingWorktree = pendingDeleteId
     ? projects.flatMap((p) => p.worktrees).find((w) => w.id === pendingDeleteId)
@@ -426,114 +429,113 @@ function App() {
         />
       )}
 
-      {/* Main content */}
+      {/* Main content - horizontal layout */}
       <PanelGroup
-        orientation="vertical"
+        orientation="horizontal"
         className="flex-1"
         onLayoutChange={() => { window.dispatchEvent(new Event('resize')); }}
       >
-        <Panel defaultSize={activeDrawerState?.isOpen ? "70%" : "100%"} minSize="30%">
+        {/* Sidebar */}
+        <Panel defaultSize="15%" minSize="10%" maxSize="30%">
+          <div className="h-full w-full">
+            <Sidebar
+              projects={projects}
+              activeWorktreeId={activeWorktreeId}
+              openWorktreeIds={openWorktreeIds}
+              loadingWorktrees={loadingWorktrees}
+              expandedProjects={expandedProjects}
+              isDrawerOpen={activeDrawerState?.isOpen ?? false}
+              onToggleProject={toggleProject}
+              onSelectWorktree={handleSelectWorktree}
+              onAddProject={handleAddProject}
+              onAddWorktree={handleAddWorktree}
+              onDeleteWorktree={handleDeleteWorktree}
+              onCloseWorktree={handleCloseWorktree}
+              onMergeWorktree={handleMergeWorktree}
+              onToggleDrawer={handleToggleDrawer}
+              onRemoveProject={handleRemoveProject}
+            />
+          </div>
+        </Panel>
+
+        <PanelResizeHandle className="w-px bg-zinc-800 hover:bg-zinc-600 transition-colors focus:outline-none cursor-col-resize" />
+
+        {/* Main Pane with Drawer - vertical layout */}
+        <Panel defaultSize="65%" minSize="30%">
           <PanelGroup
-            orientation="horizontal"
+            orientation="vertical"
             className="h-full"
             onLayoutChange={() => { window.dispatchEvent(new Event('resize')); }}
           >
-            {/* Sidebar */}
-            <Panel defaultSize="15%" minSize="10%" maxSize="30%">
-              <div className="h-full w-full">
-                <Sidebar
-                  projects={projects}
-                  activeWorktreeId={activeWorktreeId}
-                  openWorktreeIds={openWorktreeIds}
-                  loadingWorktrees={loadingWorktrees}
-                  expandedProjects={expandedProjects}
-                  onToggleProject={toggleProject}
-                  onSelectWorktree={handleSelectWorktree}
-                  onAddProject={handleAddProject}
-                  onAddWorktree={handleAddWorktree}
-                  onDeleteWorktree={(worktree) => handleDeleteWorktree(worktree.id)}
-                  onRemoveProject={handleRemoveProject}
-                />
-              </div>
+            <Panel defaultSize={activeDrawerState?.isOpen ? "70%" : "100%"} minSize="30%">
+              <MainPane
+                openWorktreeIds={openWorktreeIds}
+                activeWorktreeId={activeWorktreeId}
+                terminalConfig={config.main}
+              />
             </Panel>
 
-            <PanelResizeHandle className="w-px bg-zinc-800 hover:bg-zinc-600 transition-colors focus:outline-none cursor-col-resize" />
-
-            {/* Main Pane */}
-            <Panel defaultSize="65%" minSize="30%">
-              <div className="h-full w-full">
-                <MainPane
-                  openWorktreeIds={openWorktreeIds}
-                  activeWorktree={activeWorktree}
-                  terminalConfig={config.main}
-                  onCloseWorktree={handleCloseWorktree}
-                  onDeleteWorktree={handleDeleteWorktree}
-                  onMergeWorktree={handleMergeWorktree}
-                />
-              </div>
-            </Panel>
-
-            <PanelResizeHandle className="w-px bg-zinc-800 hover:bg-zinc-600 transition-colors focus:outline-none cursor-col-resize" />
-
-            {/* Right Panel */}
-            <Panel defaultSize="20%" minSize="15%" maxSize="40%">
-              <div className="h-full w-full">
-                <RightPanel changedFiles={changedFiles} />
+            {/* Drawer Panel - always rendered to keep terminals alive */}
+            <PanelResizeHandle
+              className={`h-px transition-colors focus:outline-none cursor-row-resize ${
+                activeDrawerState?.isOpen
+                  ? 'bg-zinc-700 hover:bg-zinc-500'
+                  : 'bg-transparent pointer-events-none'
+              }`}
+            />
+            <Panel
+              defaultSize={activeDrawerState?.isOpen ? "30%" : "0%"}
+              minSize={activeDrawerState?.isOpen ? "15%" : "0%"}
+              maxSize={activeDrawerState?.isOpen ? "70%" : "0%"}
+            >
+              <div className={activeDrawerState?.isOpen ? 'h-full' : 'h-0 overflow-hidden'}>
+                <Drawer
+                  isOpen={activeDrawerState?.isOpen ?? false}
+                  worktreeId={activeWorktreeId}
+                  tabs={activeDrawerState?.tabs ?? []}
+                  activeTabId={activeDrawerState?.activeTabId ?? null}
+                  onSelectTab={handleSelectDrawerTab}
+                  onCloseTab={handleCloseDrawerTab}
+                  onAddTab={handleAddDrawerTab}
+                >
+                  {/* Render ALL terminals for ALL worktrees to keep them alive */}
+                  {Array.from(drawerStates.entries()).flatMap(([worktreeId, state]) =>
+                    state.tabs.map((tab) => (
+                      <div
+                        key={tab.id}
+                        className={`absolute inset-0 ${
+                          worktreeId === activeWorktreeId &&
+                          activeDrawerState?.isOpen &&
+                          tab.id === activeDrawerState?.activeTabId
+                            ? 'visible z-10'
+                            : 'invisible z-0 pointer-events-none'
+                        }`}
+                      >
+                        <DrawerTerminal
+                          id={tab.id}
+                          worktreeId={worktreeId}
+                          isActive={
+                            worktreeId === activeWorktreeId &&
+                            (activeDrawerState?.isOpen ?? false) &&
+                            tab.id === activeDrawerState?.activeTabId
+                          }
+                          terminalConfig={config.terminal}
+                        />
+                      </div>
+                    ))
+                  )}
+                </Drawer>
               </div>
             </Panel>
           </PanelGroup>
         </Panel>
 
-        {/* Drawer Panel - always rendered to keep terminals alive, but visually hidden when closed */}
-        <PanelResizeHandle
-          className={`h-px transition-colors focus:outline-none cursor-row-resize ${
-            activeDrawerState?.isOpen
-              ? 'bg-zinc-700 hover:bg-zinc-500'
-              : 'bg-transparent pointer-events-none'
-          }`}
-        />
-        <Panel
-          defaultSize={activeDrawerState?.isOpen ? "30%" : "0%"}
-          minSize={activeDrawerState?.isOpen ? "15%" : "0%"}
-          maxSize={activeDrawerState?.isOpen ? "70%" : "0%"}
-        >
-          <div className={activeDrawerState?.isOpen ? 'h-full' : 'h-0 overflow-hidden'}>
-            <Drawer
-              isOpen={activeDrawerState?.isOpen ?? false}
-              worktreeId={activeWorktreeId}
-              tabs={activeDrawerState?.tabs ?? []}
-              activeTabId={activeDrawerState?.activeTabId ?? null}
-              onSelectTab={handleSelectDrawerTab}
-              onCloseTab={handleCloseDrawerTab}
-              onAddTab={handleAddDrawerTab}
-            >
-              {/* Render ALL terminals for ALL worktrees to keep them alive */}
-              {Array.from(drawerStates.entries()).flatMap(([worktreeId, state]) =>
-                state.tabs.map((tab) => (
-                  <div
-                    key={tab.id}
-                    className={`absolute inset-0 ${
-                      worktreeId === activeWorktreeId &&
-                      activeDrawerState?.isOpen &&
-                      tab.id === activeDrawerState?.activeTabId
-                        ? 'visible z-10'
-                        : 'invisible z-0 pointer-events-none'
-                    }`}
-                  >
-                    <DrawerTerminal
-                      id={tab.id}
-                      worktreeId={worktreeId}
-                      isActive={
-                        worktreeId === activeWorktreeId &&
-                        (activeDrawerState?.isOpen ?? false) &&
-                        tab.id === activeDrawerState?.activeTabId
-                      }
-                      terminalConfig={config.terminal}
-                    />
-                  </div>
-                ))
-              )}
-            </Drawer>
+        <PanelResizeHandle className="w-px bg-zinc-800 hover:bg-zinc-600 transition-colors focus:outline-none cursor-col-resize" />
+
+        {/* Right Panel */}
+        <Panel defaultSize="20%" minSize="15%" maxSize="40%">
+          <div className="h-full w-full">
+            <RightPanel changedFiles={changedFiles} />
           </div>
         </Panel>
       </PanelGroup>
