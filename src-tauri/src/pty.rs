@@ -86,6 +86,19 @@ impl PtyWriter {
 lazy_static::lazy_static! {
     static ref PTY_WRITERS: Mutex<HashMap<String, Arc<Mutex<PtyWriter>>>> = Mutex::new(HashMap::new());
     static ref PTY_MASTERS: Mutex<HashMap<String, Arc<Mutex<Box<dyn portable_pty::MasterPty + Send>>>>> = Mutex::new(HashMap::new());
+    // Cache the user's PATH to avoid spawning shell on every PTY creation
+    static ref CACHED_USER_PATH: Mutex<Option<String>> = Mutex::new(None);
+}
+
+/// Get the user's PATH, using cached value if available
+fn get_cached_user_path() -> String {
+    let mut cache = CACHED_USER_PATH.lock();
+    if let Some(path) = cache.as_ref() {
+        return path.clone();
+    }
+    let path = get_user_path();
+    *cache = Some(path.clone());
+    path
 }
 
 pub fn spawn_pty(
@@ -106,8 +119,8 @@ pub fn spawn_pty(
         pixel_height: 0,
     })?;
 
-    // Get user's PATH from their login shell
-    let user_path = get_user_path();
+    // Get user's PATH (cached after first call)
+    let user_path = get_cached_user_path();
 
     eprintln!("[PTY] Spawning command: {} in {}", command, worktree_path);
 

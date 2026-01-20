@@ -136,11 +136,8 @@ export function MainTerminal({ worktreeId, isActive, terminalConfig }: MainTermi
 
     // Fit terminal and spawn main process with correct size
     const initPty = async () => {
-      await new Promise(resolve => setTimeout(resolve, 300));
-      if (!isMounted) return;
-
-      fitAddon.fit();
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // Wait for next frame to ensure container is laid out
+      await new Promise(resolve => requestAnimationFrame(resolve));
       if (!isMounted) return;
 
       fitAddon.fit();

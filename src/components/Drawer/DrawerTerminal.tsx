@@ -111,7 +111,8 @@ export function DrawerTerminal({ id, worktreeId, isActive, terminalConfig }: Dra
 
     // Fit terminal and spawn shell
     const initPty = async () => {
-      await new Promise(resolve => setTimeout(resolve, 150));
+      // Wait for next frame to ensure container is laid out
+      await new Promise(resolve => requestAnimationFrame(resolve));
       fitAddon.fit();
       const cols = terminal.cols;
       const rows = terminal.rows;
