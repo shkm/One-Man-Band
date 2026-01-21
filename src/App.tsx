@@ -18,6 +18,8 @@ import { matchesShortcut } from './lib/keyboard';
 import { Project, Worktree } from './types';
 
 const EXPANDED_PROJECTS_KEY = 'onemanband:expandedProjects';
+const SHOW_ACTIVE_ONLY_KEY = 'onemanband:showActiveOnly';
+const ACTIVE_PROJECTS_KEY = 'onemanband:activeProjects';
 
 // Which pane has focus per worktree
 type FocusedPane = 'main' | 'drawer';
@@ -144,6 +146,43 @@ function App() {
   useEffect(() => {
     localStorage.setItem(EXPANDED_PROJECTS_KEY, JSON.stringify([...expandedProjects]));
   }, [expandedProjects]);
+
+  // Show active projects only toggle - persisted to localStorage
+  const [showActiveOnly, setShowActiveOnly] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem(SHOW_ACTIVE_ONLY_KEY);
+      if (saved !== null) {
+        return JSON.parse(saved);
+      }
+    } catch (e) {
+      console.error('Failed to load showActiveOnly:', e);
+    }
+    return false;
+  });
+
+  // Persist showActiveOnly to localStorage
+  useEffect(() => {
+    localStorage.setItem(SHOW_ACTIVE_ONLY_KEY, JSON.stringify(showActiveOnly));
+  }, [showActiveOnly]);
+
+  // Track projects marked as active (persisted to localStorage)
+  // This prevents hiding a project we're actively working in
+  const [sessionTouchedProjects, setSessionTouchedProjects] = useState<Set<string>>(() => {
+    try {
+      const saved = localStorage.getItem(ACTIVE_PROJECTS_KEY);
+      if (saved) {
+        return new Set(JSON.parse(saved));
+      }
+    } catch (e) {
+      console.error('Failed to load active projects:', e);
+    }
+    return new Set();
+  });
+
+  // Persist active projects to localStorage
+  useEffect(() => {
+    localStorage.setItem(ACTIVE_PROJECTS_KEY, JSON.stringify([...sessionTouchedProjects]));
+  }, [sessionTouchedProjects]);
 
   const toggleProject = useCallback((projectId: string) => {
     setExpandedProjects((prev) => {
@@ -545,6 +584,8 @@ function App() {
       if (!project) return;
 
       setExpandedProjects((prev) => new Set([...prev, projectId]));
+      // Mark project as touched this session so it stays visible
+      setSessionTouchedProjects((prev) => new Set([...prev, projectId]));
 
       try {
         const worktree = await createWorktree(project.path);
@@ -559,12 +600,17 @@ function App() {
   );
 
   const handleSelectWorktree = useCallback((worktree: Worktree) => {
+    // Mark the project as active
+    const project = projects.find((p) => p.worktrees.some((w) => w.id === worktree.id));
+    if (project) {
+      setSessionTouchedProjects((prev) => new Set([...prev, project.id]));
+    }
     setOpenWorktreeIds((prev) => {
       if (prev.has(worktree.id)) return prev;
       return new Set([...prev, worktree.id]);
     });
     setActiveWorktreeId(worktree.id);
-  }, []);
+  }, [projects]);
 
   const handleCloseWorktree = useCallback(
     (worktreeId: string) => {
@@ -609,6 +655,12 @@ function App() {
   const confirmDeleteWorktree = useCallback(async () => {
     if (!pendingDeleteId) return;
     try {
+      // Mark the project as session-touched so it stays visible after deletion
+      const project = projects.find((p) => p.worktrees.some((w) => w.id === pendingDeleteId));
+      if (project) {
+        setSessionTouchedProjects((prev) => new Set([...prev, project.id]));
+      }
+
       await deleteWorktree(pendingDeleteId);
       setOpenWorktreeIds((prev) => {
         const next = new Set(prev);
@@ -645,10 +697,19 @@ function App() {
     } finally {
       setPendingDeleteId(null);
     }
-  }, [deleteWorktree, pendingDeleteId, activeWorktreeId, openWorktreeIds]);
+  }, [deleteWorktree, pendingDeleteId, activeWorktreeId, openWorktreeIds, projects]);
 
   const handleRemoveProject = useCallback((project: Project) => {
     setPendingRemoveProject(project);
+  }, []);
+
+  // Mark a project as inactive (remove from session touched)
+  const handleMarkProjectInactive = useCallback((projectId: string) => {
+    setSessionTouchedProjects((prev) => {
+      const next = new Set(prev);
+      next.delete(projectId);
+      return next;
+    });
   }, []);
 
   const handleMergeWorktree = useCallback((worktreeId: string) => {
@@ -788,6 +849,8 @@ function App() {
               notifiedWorktreeIds={notifiedWorktreeIds}
               thinkingWorktreeIds={thinkingWorktreeIds}
               expandedProjects={expandedProjects}
+              showActiveOnly={showActiveOnly}
+              sessionTouchedProjects={sessionTouchedProjects}
               isDrawerOpen={isDrawerOpen}
               isRightPanelOpen={isRightPanelOpen}
               onToggleProject={toggleProject}
@@ -800,6 +863,8 @@ function App() {
               onToggleDrawer={handleToggleDrawer}
               onToggleRightPanel={handleToggleRightPanel}
               onRemoveProject={handleRemoveProject}
+              onMarkProjectInactive={handleMarkProjectInactive}
+              onToggleShowActiveOnly={() => setShowActiveOnly(prev => !prev)}
             />
           </div>
         </Panel>

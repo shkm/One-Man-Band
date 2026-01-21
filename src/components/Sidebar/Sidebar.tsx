@@ -1,6 +1,6 @@
-import { FolderGit2, Plus, ChevronRight, ChevronDown, GitBranch, MoreHorizontal, Trash2, Loader2, Terminal, GitMerge, X, PanelRight, BellDot } from 'lucide-react';
+import { FolderGit2, Plus, ChevronRight, ChevronDown, GitBranch, MoreHorizontal, Trash2, Loader2, Terminal, GitMerge, X, PanelRight, BellDot, Settings } from 'lucide-react';
 import { Project, Worktree } from '../../types';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { DragRegion } from '../DragRegion';
 import { ContextMenu } from '../ContextMenu';
 
@@ -12,6 +12,8 @@ interface SidebarProps {
   notifiedWorktreeIds: Set<string>;
   thinkingWorktreeIds: Set<string>;
   expandedProjects: Set<string>;
+  showActiveOnly: boolean;
+  sessionTouchedProjects: Set<string>;
   isDrawerOpen: boolean;
   isRightPanelOpen: boolean;
   onToggleProject: (projectId: string) => void;
@@ -24,6 +26,8 @@ interface SidebarProps {
   onToggleDrawer: () => void;
   onToggleRightPanel: () => void;
   onRemoveProject: (project: Project) => void;
+  onMarkProjectInactive: (projectId: string) => void;
+  onToggleShowActiveOnly: () => void;
 }
 
 export function Sidebar({
@@ -34,6 +38,8 @@ export function Sidebar({
   notifiedWorktreeIds,
   thinkingWorktreeIds,
   expandedProjects,
+  showActiveOnly,
+  sessionTouchedProjects,
   isDrawerOpen,
   isRightPanelOpen,
   onToggleProject,
@@ -46,12 +52,27 @@ export function Sidebar({
   onToggleDrawer,
   onToggleRightPanel,
   onRemoveProject,
+  onMarkProjectInactive,
+  onToggleShowActiveOnly,
 }: SidebarProps) {
   const [contextMenu, setContextMenu] = useState<{
     project: Project;
     x: number;
     y: number;
   } | null>(null);
+
+  const [optionsMenu, setOptionsMenu] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
+
+  const handleOptionsClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    setOptionsMenu({
+      x: rect.left,
+      y: rect.bottom + 4,
+    });
+  };
 
   const handleProjectContextMenu = (
     e: React.MouseEvent,
@@ -85,10 +106,36 @@ export function Sidebar({
     }
   };
 
+  const handleMarkInactive = () => {
+    if (contextMenu) {
+      onMarkProjectInactive(contextMenu.project.id);
+      setContextMenu(null);
+    }
+  };
+
+  // Filter projects based on showActiveOnly setting
+  // A project is "active" if it has open worktrees OR was touched this session
+  const filteredProjects = useMemo(() => {
+    if (!showActiveOnly) return projects;
+    return projects.filter((project) => {
+      const hasOpenWorktrees = project.worktrees.some((w) => openWorktreeIds.has(w.id));
+      const wasTouchedThisSession = sessionTouchedProjects.has(project.id);
+      return hasOpenWorktrees || wasTouchedThisSession;
+    });
+  }, [projects, showActiveOnly, openWorktreeIds, sessionTouchedProjects]);
+
   return (
     <div className="flex flex-col h-full bg-zinc-900 select-none">
       {/* Drag region for macOS traffic lights */}
-      <DragRegion className="h-8 flex-shrink-0" />
+      <DragRegion className="h-8 flex-shrink-0 flex items-center justify-end px-1">
+        <button
+          onClick={handleOptionsClick}
+          className="p-1 rounded hover:bg-zinc-800 text-zinc-500 hover:text-zinc-300"
+          title="Options"
+        >
+          <Settings size={14} />
+        </button>
+      </DragRegion>
       <div className="flex-1 overflow-y-auto px-1.5 py-2">
         {projects.length === 0 ? (
           <div className="text-center py-8 text-zinc-400 text-sm">
@@ -101,9 +148,14 @@ export function Sidebar({
               Add a project
             </button>
           </div>
+        ) : filteredProjects.length === 0 ? (
+          <div className="text-center py-8 text-zinc-400 text-sm">
+            <FolderGit2 className="mx-auto mb-2" size={32} />
+            <p>No active projects</p>
+          </div>
         ) : (
           <>
-          {projects.map((project) => {
+          {filteredProjects.map((project) => {
             const hasOpenWorktrees = project.worktrees.some((w) => openWorktreeIds.has(w.id));
             return (
             <div key={project.id} className="mb-2">
@@ -240,6 +292,16 @@ export function Sidebar({
           x={contextMenu.x}
           y={contextMenu.y}
           items={[
+            // Only show "Mark as inactive" if:
+            // - Project is in session touched set
+            // - Project has no open worktrees (so it would hide when we mark it inactive)
+            ...(sessionTouchedProjects.has(contextMenu.project.id) &&
+              !contextMenu.project.worktrees.some((w) => openWorktreeIds.has(w.id))
+              ? [{
+                  label: 'Mark as Inactive',
+                  onClick: handleMarkInactive,
+                }]
+              : []),
             {
               label: 'Remove Project',
               onClick: handleRemoveProject,
@@ -247,6 +309,22 @@ export function Sidebar({
             },
           ]}
           onClose={() => setContextMenu(null)}
+        />
+      )}
+
+      {optionsMenu && (
+        <ContextMenu
+          x={optionsMenu.x}
+          y={optionsMenu.y}
+          items={[
+            {
+              label: 'Show Active Only',
+              onClick: onToggleShowActiveOnly,
+              toggle: true,
+              checked: showActiveOnly,
+            },
+          ]}
+          onClose={() => setOptionsMenu(null)}
         />
       )}
 
