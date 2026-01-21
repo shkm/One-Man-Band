@@ -227,66 +227,92 @@ pub struct MappingsConfig {
     pub worktree_8: Shortcut,
     #[serde(rename = "worktree9")]
     pub worktree_9: Shortcut,
+    #[serde(rename = "runTask")]
+    pub run_task: Shortcut,
+    #[serde(rename = "newWorkspace")]
+    pub new_workspace: Shortcut,
+    #[serde(rename = "switchFocus")]
+    pub switch_focus: Shortcut,
+}
+
+/// Helper struct to extract just mappings from DEFAULT_CONFIG without recursion
+#[derive(Deserialize)]
+struct DefaultConfigMappings {
+    mappings: MappingsConfigRaw,
+}
+
+/// Raw mappings struct without #[serde(default)] to avoid recursion
+#[derive(Deserialize)]
+struct MappingsConfigRaw {
+    #[serde(rename = "toggleDrawer")]
+    toggle_drawer: Shortcut,
+    #[serde(rename = "toggleRightPanel")]
+    toggle_right_panel: Shortcut,
+    #[serde(rename = "terminalCopy")]
+    terminal_copy: Shortcut,
+    #[serde(rename = "terminalPaste")]
+    terminal_paste: Shortcut,
+    #[serde(rename = "worktreePrev")]
+    worktree_prev: Shortcut,
+    #[serde(rename = "worktreeNext")]
+    worktree_next: Shortcut,
+    #[serde(rename = "worktree1")]
+    worktree_1: Shortcut,
+    #[serde(rename = "worktree2")]
+    worktree_2: Shortcut,
+    #[serde(rename = "worktree3")]
+    worktree_3: Shortcut,
+    #[serde(rename = "worktree4")]
+    worktree_4: Shortcut,
+    #[serde(rename = "worktree5")]
+    worktree_5: Shortcut,
+    #[serde(rename = "worktree6")]
+    worktree_6: Shortcut,
+    #[serde(rename = "worktree7")]
+    worktree_7: Shortcut,
+    #[serde(rename = "worktree8")]
+    worktree_8: Shortcut,
+    #[serde(rename = "worktree9")]
+    worktree_9: Shortcut,
+    #[serde(rename = "runTask")]
+    run_task: Shortcut,
+    #[serde(rename = "newWorkspace")]
+    new_workspace: Shortcut,
+    #[serde(rename = "switchFocus")]
+    switch_focus: Shortcut,
 }
 
 impl Default for MappingsConfig {
     fn default() -> Self {
-        Self {
-            toggle_drawer: Shortcut::Single("ctrl+`".to_string()),
-            toggle_right_panel: Shortcut::Single("cmd+b".to_string()),
-            terminal_copy: Shortcut::Platform(PlatformShortcut {
-                mac: Some("cmd+c".to_string()),
-                other: Some("ctrl+shift+c".to_string()),
-            }),
-            terminal_paste: Shortcut::Platform(PlatformShortcut {
-                mac: Some("cmd+v".to_string()),
-                other: Some("ctrl+shift+v".to_string()),
-            }),
-            worktree_prev: Shortcut::Platform(PlatformShortcut {
-                mac: Some("cmd+k".to_string()),
-                other: Some("ctrl+shift+k".to_string()),
-            }),
-            worktree_next: Shortcut::Platform(PlatformShortcut {
-                mac: Some("cmd+j".to_string()),
-                other: Some("ctrl+shift+j".to_string()),
-            }),
-            worktree_1: Shortcut::Platform(PlatformShortcut {
-                mac: Some("cmd+1".to_string()),
-                other: Some("ctrl+1".to_string()),
-            }),
-            worktree_2: Shortcut::Platform(PlatformShortcut {
-                mac: Some("cmd+2".to_string()),
-                other: Some("ctrl+2".to_string()),
-            }),
-            worktree_3: Shortcut::Platform(PlatformShortcut {
-                mac: Some("cmd+3".to_string()),
-                other: Some("ctrl+3".to_string()),
-            }),
-            worktree_4: Shortcut::Platform(PlatformShortcut {
-                mac: Some("cmd+4".to_string()),
-                other: Some("ctrl+4".to_string()),
-            }),
-            worktree_5: Shortcut::Platform(PlatformShortcut {
-                mac: Some("cmd+5".to_string()),
-                other: Some("ctrl+5".to_string()),
-            }),
-            worktree_6: Shortcut::Platform(PlatformShortcut {
-                mac: Some("cmd+6".to_string()),
-                other: Some("ctrl+6".to_string()),
-            }),
-            worktree_7: Shortcut::Platform(PlatformShortcut {
-                mac: Some("cmd+7".to_string()),
-                other: Some("ctrl+7".to_string()),
-            }),
-            worktree_8: Shortcut::Platform(PlatformShortcut {
-                mac: Some("cmd+8".to_string()),
-                other: Some("ctrl+8".to_string()),
-            }),
-            worktree_9: Shortcut::Platform(PlatformShortcut {
-                mac: Some("cmd+9".to_string()),
-                other: Some("ctrl+9".to_string()),
-            }),
+        // Parse defaults from DEFAULT_CONFIG (single source of truth)
+        let mut json = DEFAULT_CONFIG.to_string();
+        if json_strip_comments::strip(&mut json).is_ok() {
+            if let Ok(parsed) = serde_json::from_str::<DefaultConfigMappings>(&json) {
+                let m = parsed.mappings;
+                return Self {
+                    toggle_drawer: m.toggle_drawer,
+                    toggle_right_panel: m.toggle_right_panel,
+                    terminal_copy: m.terminal_copy,
+                    terminal_paste: m.terminal_paste,
+                    worktree_prev: m.worktree_prev,
+                    worktree_next: m.worktree_next,
+                    worktree_1: m.worktree_1,
+                    worktree_2: m.worktree_2,
+                    worktree_3: m.worktree_3,
+                    worktree_4: m.worktree_4,
+                    worktree_5: m.worktree_5,
+                    worktree_6: m.worktree_6,
+                    worktree_7: m.worktree_7,
+                    worktree_8: m.worktree_8,
+                    worktree_9: m.worktree_9,
+                    run_task: m.run_task,
+                    new_workspace: m.new_workspace,
+                    switch_focus: m.switch_focus,
+                };
+            }
         }
+        // Fallback if parsing fails (shouldn't happen with valid DEFAULT_CONFIG)
+        panic!("Failed to parse DEFAULT_CONFIG mappings - this is a bug");
     }
 }
 

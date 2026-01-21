@@ -578,6 +578,58 @@ function App() {
     });
   }, []);
 
+  // Switch focus between main and drawer panes
+  const handleSwitchFocus = useCallback(() => {
+    if (!activeWorktreeId) return;
+
+    const currentFocus = focusStates.get(activeWorktreeId) ?? 'main';
+    const newFocus = currentFocus === 'main' ? 'drawer' : 'main';
+
+    // If switching to drawer and it's not open, open it
+    if (newFocus === 'drawer' && !isDrawerOpen) {
+      const panel = drawerPanelRef.current;
+      if (panel) {
+        panel.resize(lastDrawerSize.current);
+      }
+
+      // Create first tab if none exist
+      const currentTabs = drawerTabs.get(activeWorktreeId) ?? [];
+      if (currentTabs.length === 0) {
+        const currentCounter = drawerTabCounters.get(activeWorktreeId) ?? 0;
+        const newCounter = currentCounter + 1;
+        const newTab: DrawerTab = {
+          id: `${activeWorktreeId}-drawer-${newCounter}`,
+          label: `Terminal ${newCounter}`,
+          type: 'terminal',
+        };
+        setDrawerTabs((prev) => {
+          const next = new Map(prev);
+          next.set(activeWorktreeId, [newTab]);
+          return next;
+        });
+        setDrawerActiveTabIds((prev) => {
+          const next = new Map(prev);
+          next.set(activeWorktreeId, newTab.id);
+          return next;
+        });
+        setDrawerTabCounters((prev) => {
+          const next = new Map(prev);
+          next.set(activeWorktreeId, newCounter);
+          return next;
+        });
+      }
+
+      setIsDrawerOpen(true);
+      dispatchPanelResizeComplete();
+    }
+
+    setFocusStates((prev) => {
+      const next = new Map(prev);
+      next.set(activeWorktreeId, newFocus);
+      return next;
+    });
+  }, [activeWorktreeId, focusStates, isDrawerOpen, drawerTabs, drawerTabCounters, dispatchPanelResizeComplete]);
+
   // Task handlers
   const handleSelectTask = useCallback((taskName: string) => {
     if (!activeProjectPath) return;
@@ -708,6 +760,18 @@ function App() {
     });
   }, [activeWorktreeId, runningTasks]);
 
+  // Toggle task: run if not running, stop if running
+  const handleToggleTask = useCallback(() => {
+    if (!activeWorktreeId || !activeSelectedTask) return;
+
+    const runningTask = runningTasks.get(activeWorktreeId);
+    if (runningTask?.status === 'running') {
+      handleStopTask();
+    } else {
+      handleStartTask();
+    }
+  }, [activeWorktreeId, activeSelectedTask, runningTasks, handleStartTask, handleStopTask]);
+
   const handleForceKillTask = useCallback(() => {
     if (!activeWorktreeId) return;
 
@@ -765,103 +829,6 @@ function App() {
       unlisten?.();
     };
   }, []);
-
-  // Keyboard shortcuts
-  useEffect(() => {
-    const { mappings } = config;
-    const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Track modifier key state (cmd on mac, ctrl on other)
-      if ((isMac && e.metaKey) || (!isMac && e.ctrlKey)) {
-        setIsModifierKeyHeld(true);
-      }
-
-      // Worktree selection by index (1-9)
-      const worktreeShortcuts = [
-        mappings.worktree1,
-        mappings.worktree2,
-        mappings.worktree3,
-        mappings.worktree4,
-        mappings.worktree5,
-        mappings.worktree6,
-        mappings.worktree7,
-        mappings.worktree8,
-        mappings.worktree9,
-      ];
-      for (let i = 0; i < worktreeShortcuts.length; i++) {
-        if (matchesShortcut(e, worktreeShortcuts[i]) && i < openWorktreesInOrder.length) {
-          e.preventDefault();
-          setActiveWorktreeId(openWorktreesInOrder[i]);
-          break;
-        }
-      }
-
-      if (!activeWorktreeId) return;
-
-      if (matchesShortcut(e, mappings.toggleDrawer)) {
-        e.preventDefault();
-        handleToggleDrawer();
-      }
-
-      // Cmd+T to add new terminal tab (when drawer is open)
-      if ((e.metaKey || e.ctrlKey) && e.key === 't' && isDrawerOpen) {
-        e.preventDefault();
-        handleAddDrawerTab();
-      }
-
-      // Cmd+W to close active terminal tab (when drawer is open)
-      if ((e.metaKey || e.ctrlKey) && e.key === 'w' && isDrawerOpen) {
-        e.preventDefault();
-        if (activeDrawerTabId) {
-          handleCloseDrawerTab(activeDrawerTabId);
-        }
-      }
-
-      if (matchesShortcut(e, mappings.toggleRightPanel)) {
-        e.preventDefault();
-        handleToggleRightPanel();
-      }
-
-      // Worktree navigation - cycle through active worktrees in sidebar order
-      if (openWorktreesInOrder.length > 1 && activeWorktreeId) {
-        const currentIndex = openWorktreesInOrder.indexOf(activeWorktreeId);
-        if (currentIndex !== -1) {
-          if (matchesShortcut(e, mappings.worktreePrev)) {
-            e.preventDefault();
-            const prevIndex = currentIndex === 0 ? openWorktreesInOrder.length - 1 : currentIndex - 1;
-            setActiveWorktreeId(openWorktreesInOrder[prevIndex]);
-          }
-          if (matchesShortcut(e, mappings.worktreeNext)) {
-            e.preventDefault();
-            const nextIndex = currentIndex === openWorktreesInOrder.length - 1 ? 0 : currentIndex + 1;
-            setActiveWorktreeId(openWorktreesInOrder[nextIndex]);
-          }
-        }
-      }
-    };
-
-    const handleKeyUp = (e: KeyboardEvent) => {
-      // Clear modifier key state when released
-      if ((isMac && e.key === 'Meta') || (!isMac && e.key === 'Control')) {
-        setIsModifierKeyHeld(false);
-      }
-    };
-
-    // Clear modifier state when window loses focus
-    const handleBlur = () => {
-      setIsModifierKeyHeld(false);
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('keyup', handleKeyUp);
-    window.addEventListener('blur', handleBlur);
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('keyup', handleKeyUp);
-      window.removeEventListener('blur', handleBlur);
-    };
-  }, [activeWorktreeId, isDrawerOpen, activeDrawerTabId, config, openWorktreesInOrder, handleToggleDrawer, handleAddDrawerTab, handleCloseDrawerTab, handleToggleRightPanel]);
 
   // Worktree handlers
   const handleAddProject = useCallback(async () => {
@@ -1214,6 +1181,122 @@ function App() {
     }
   }, [removeProject, pendingRemoveProject, activeWorktreeId, openWorktreeIds]);
 
+  // Keyboard shortcuts
+  useEffect(() => {
+    const { mappings } = config;
+    const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Track modifier key state (cmd on mac, ctrl on other)
+      if ((isMac && e.metaKey) || (!isMac && e.ctrlKey)) {
+        setIsModifierKeyHeld(true);
+      }
+
+      // Worktree selection by index (1-9)
+      const worktreeShortcuts = [
+        mappings.worktree1,
+        mappings.worktree2,
+        mappings.worktree3,
+        mappings.worktree4,
+        mappings.worktree5,
+        mappings.worktree6,
+        mappings.worktree7,
+        mappings.worktree8,
+        mappings.worktree9,
+      ];
+      for (let i = 0; i < worktreeShortcuts.length; i++) {
+        if (matchesShortcut(e, worktreeShortcuts[i]) && i < openWorktreesInOrder.length) {
+          e.preventDefault();
+          setActiveWorktreeId(openWorktreesInOrder[i]);
+          break;
+        }
+      }
+
+      // Switch focus between main and drawer (works even without active worktree selection)
+      if (matchesShortcut(e, mappings.switchFocus)) {
+        e.preventDefault();
+        handleSwitchFocus();
+        return;
+      }
+
+      if (!activeWorktreeId) return;
+
+      if (matchesShortcut(e, mappings.toggleDrawer)) {
+        e.preventDefault();
+        handleToggleDrawer();
+      }
+
+      // Cmd+T to add new terminal tab (when drawer is open)
+      if ((e.metaKey || e.ctrlKey) && e.key === 't' && isDrawerOpen) {
+        e.preventDefault();
+        handleAddDrawerTab();
+      }
+
+      // Cmd+W to close active terminal tab (when drawer is open)
+      if ((e.metaKey || e.ctrlKey) && e.key === 'w' && isDrawerOpen) {
+        e.preventDefault();
+        if (activeDrawerTabId) {
+          handleCloseDrawerTab(activeDrawerTabId);
+        }
+      }
+
+      if (matchesShortcut(e, mappings.toggleRightPanel)) {
+        e.preventDefault();
+        handleToggleRightPanel();
+      }
+
+      // Worktree navigation - cycle through active worktrees in sidebar order
+      if (openWorktreesInOrder.length > 1 && activeWorktreeId) {
+        const currentIndex = openWorktreesInOrder.indexOf(activeWorktreeId);
+        if (currentIndex !== -1) {
+          if (matchesShortcut(e, mappings.worktreePrev)) {
+            e.preventDefault();
+            const prevIndex = currentIndex === 0 ? openWorktreesInOrder.length - 1 : currentIndex - 1;
+            setActiveWorktreeId(openWorktreesInOrder[prevIndex]);
+          }
+          if (matchesShortcut(e, mappings.worktreeNext)) {
+            e.preventDefault();
+            const nextIndex = currentIndex === openWorktreesInOrder.length - 1 ? 0 : currentIndex + 1;
+            setActiveWorktreeId(openWorktreesInOrder[nextIndex]);
+          }
+        }
+      }
+
+      // Run/stop task toggle
+      if (matchesShortcut(e, mappings.runTask)) {
+        e.preventDefault();
+        handleToggleTask();
+      }
+
+      // New workspace (requires an active project)
+      if (matchesShortcut(e, mappings.newWorkspace) && activeProjectId) {
+        e.preventDefault();
+        handleAddWorktree(activeProjectId);
+      }
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      // Clear modifier key state when released
+      if ((isMac && e.key === 'Meta') || (!isMac && e.key === 'Control')) {
+        setIsModifierKeyHeld(false);
+      }
+    };
+
+    // Clear modifier state when window loses focus
+    const handleBlur = () => {
+      setIsModifierKeyHeld(false);
+    };
+
+    // Use capture phase so shortcuts are handled before terminal consumes events
+    window.addEventListener('keydown', handleKeyDown, true);
+    window.addEventListener('keyup', handleKeyUp);
+    window.addEventListener('blur', handleBlur);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown, true);
+      window.removeEventListener('keyup', handleKeyUp);
+      window.removeEventListener('blur', handleBlur);
+    };
+  }, [activeWorktreeId, activeProjectId, isDrawerOpen, activeDrawerTabId, config, openWorktreesInOrder, handleToggleDrawer, handleAddDrawerTab, handleCloseDrawerTab, handleToggleRightPanel, handleToggleTask, handleSwitchFocus, handleAddWorktree]);
 
   const pendingWorktree = pendingDeleteId
     ? projects.flatMap((p) => p.worktrees).find((w) => w.id === pendingDeleteId)

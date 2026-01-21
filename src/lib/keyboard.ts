@@ -11,6 +11,16 @@ const isMac = typeof navigator !== 'undefined' && navigator.platform.toUpperCase
  *
  * Examples: "ctrl+`", "cmd+t", "cmd+shift+p"
  */
+// Map of special keys where event.key differs from the shortcut key
+// (e.g., Ctrl+\ produces a control character, not '\')
+const KEY_CODE_MAP: Record<string, string> = {
+  '\\': 'Backslash',
+  '/': 'Slash',
+  '[': 'BracketLeft',
+  ']': 'BracketRight',
+  '`': 'Backquote',
+};
+
 function matchesSingleShortcut(event: KeyboardEvent, shortcut: string): boolean {
   const parts = shortcut.toLowerCase().split('+');
   const key = parts.pop();
@@ -18,9 +28,14 @@ function matchesSingleShortcut(event: KeyboardEvent, shortcut: string): boolean 
 
   if (!key) return false;
 
-  // Check key match
+  // Check key match - use event.code for special keys that produce control characters
+  const expectedCode = KEY_CODE_MAP[key];
   const eventKey = event.key.toLowerCase();
-  if (eventKey !== key) return false;
+  const keyMatches = expectedCode
+    ? event.code === expectedCode
+    : eventKey === key;
+
+  if (!keyMatches) return false;
 
   // "cmd" means metaKey on Mac, ctrlKey elsewhere
   const wantsCmd = modifiers.has('cmd');
