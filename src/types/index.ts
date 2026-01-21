@@ -68,3 +68,14 @@ export interface CleanupOptions {
   deleteLocalBranch: boolean;
   deleteRemoteBranch: boolean;
 }
+
+// Task types
+export type TaskKind = 'command' | 'daemon';
+
+export interface RunningTask {
+  taskName: string;
+  ptyId: string;
+  kind: TaskKind;
+  status: 'running' | 'stopping' | 'stopped';
+  worktreeId: string;
+}
