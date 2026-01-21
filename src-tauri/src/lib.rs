@@ -249,6 +249,24 @@ fn get_changed_files(worktree_path: &str) -> Result<Vec<FileChange>> {
 }
 
 #[tauri::command]
+fn has_uncommitted_changes(project_path: &str) -> Result<bool> {
+    let path = Path::new(project_path);
+    git::has_uncommitted_changes_at_path(path).map_err(map_err)
+}
+
+#[tauri::command]
+fn stash_changes(project_path: &str) -> Result<()> {
+    let path = Path::new(project_path);
+    git::stash_changes(path).map_err(map_err)
+}
+
+#[tauri::command]
+fn stash_pop(project_path: &str) -> Result<()> {
+    let path = Path::new(project_path);
+    git::stash_pop(path).map_err(map_err)
+}
+
+#[tauri::command]
 fn start_watching(app: AppHandle, worktree_id: String, worktree_path: String) {
     watcher::watch_worktree(app, worktree_id, worktree_path);
 }
@@ -605,6 +623,9 @@ pub fn run() {
             pty_resize,
             pty_kill,
             get_changed_files,
+            has_uncommitted_changes,
+            stash_changes,
+            stash_pop,
             start_watching,
             stop_watching,
             get_config,
