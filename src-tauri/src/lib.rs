@@ -319,15 +319,15 @@ fn has_uncommitted_changes(project_path: &str) -> Result<bool> {
 }
 
 #[tauri::command]
-fn stash_changes(project_path: &str) -> Result<()> {
+fn stash_changes(project_path: &str) -> Result<String> {
     let path = Path::new(project_path);
     git::stash_changes(path).map_err(map_err)
 }
 
 #[tauri::command]
-fn stash_pop(project_path: &str) -> Result<()> {
+fn stash_pop(project_path: &str, stash_id: &str) -> Result<()> {
     let path = Path::new(project_path);
-    git::stash_pop(path).map_err(map_err)
+    git::stash_pop(path, stash_id).map_err(map_err)
 }
 
 #[tauri::command]

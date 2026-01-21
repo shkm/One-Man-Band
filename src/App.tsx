@@ -922,11 +922,13 @@ function App() {
     setIsStashing(true);
     console.log('[handleStashAndCreate] Starting for project:', project.path);
 
+    let stashId: string | null = null;
+
     try {
-      // Stash the changes
+      // Stash the changes and get the stash ID
       console.log('[handleStashAndCreate] Stashing changes...');
-      await stashChanges(project.path);
-      console.log('[handleStashAndCreate] Stash successful');
+      stashId = await stashChanges(project.path);
+      console.log('[handleStashAndCreate] Stash successful with id:', stashId);
 
       // Create the worktree
       console.log('[handleStashAndCreate] Creating worktree...');
@@ -934,8 +936,8 @@ function App() {
       console.log('[handleStashAndCreate] Worktree created:', worktree.name);
 
       // Pop the stash to restore changes
-      console.log('[handleStashAndCreate] Popping stash...');
-      await stashPop(project.path);
+      console.log('[handleStashAndCreate] Popping stash with id:', stashId);
+      await stashPop(project.path, stashId);
       console.log('[handleStashAndCreate] Stash popped');
 
       // Update UI state
@@ -947,10 +949,12 @@ function App() {
       console.error('[handleStashAndCreate] Failed:', err);
       setStashError(String(err));
       // Try to restore the stash if worktree creation failed
-      try {
-        await stashPop(project.path);
-      } catch {
-        // Stash pop might fail if we never stashed successfully
+      if (stashId) {
+        try {
+          await stashPop(project.path, stashId);
+        } catch {
+          // Stash pop might fail if we never stashed successfully
+        }
       }
     } finally {
       setIsStashing(false);

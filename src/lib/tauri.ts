@@ -82,12 +82,12 @@ export async function hasUncommittedChanges(projectPath: string): Promise<boolea
   return invoke<boolean>('has_uncommitted_changes', { projectPath });
 }
 
-export async function stashChanges(projectPath: string): Promise<void> {
-  return invoke<void>('stash_changes', { projectPath });
+export async function stashChanges(projectPath: string): Promise<string> {
+  return invoke<string>('stash_changes', { projectPath });
 }
 
-export async function stashPop(projectPath: string): Promise<void> {
-  return invoke<void>('stash_pop', { projectPath });
+export async function stashPop(projectPath: string, stashId: string): Promise<void> {
+  return invoke<void>('stash_pop', { projectPath, stashId });
 }
 
 // Dialog helpers

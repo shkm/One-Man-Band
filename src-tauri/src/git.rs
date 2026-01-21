@@ -79,37 +79,50 @@ pub fn create_worktree(
     worktree_path: &Path,
     branch_name: &str,
 ) -> Result<(), GitError> {
-    log::info!("[git::create_worktree] Opening repo at {:?}", repo_path);
-    let repo = Repository::open(repo_path)?;
+    use std::process::Command;
 
-    // Check for modified/staged changes before proceeding
-    // We only check for modified/staged files, not untracked files,
-    // because untracked files don't affect worktree creation
-    let has_changes = has_modified_or_staged_changes(&repo)?;
-    log::info!("[git::create_worktree] has_modified_or_staged_changes: {}", has_changes);
-    if has_changes {
-        log::info!("[git::create_worktree] Returning UncommittedChanges error");
-        return Err(GitError::UncommittedChanges);
+    log::info!("[git::create_worktree] Creating worktree at {:?}", worktree_path);
+
+    // Check for modified/staged changes before proceeding using libgit2
+    // (read-only operation, no lock issues)
+    {
+        let repo = Repository::open(repo_path)?;
+        let has_changes = has_modified_or_staged_changes(&repo)?;
+        log::info!("[git::create_worktree] has_modified_or_staged_changes: {}", has_changes);
+        if has_changes {
+            log::info!("[git::create_worktree] Returning UncommittedChanges error");
+            return Err(GitError::UncommittedChanges);
+        }
     }
 
     // Get the default branch to branch from
-    let default_branch = get_default_branch(&repo)?;
+    let default_branch = {
+        let repo = Repository::open(repo_path)?;
+        get_default_branch(&repo)?
+    };
 
-    // Create a new branch from the default branch
-    let commit = repo
-        .find_branch(&default_branch, git2::BranchType::Local)?
-        .get()
-        .peel_to_commit()?;
+    // Use git CLI for worktree creation - handles locking properly
+    let output = Command::new("git")
+        .args([
+            "worktree",
+            "add",
+            "-b",
+            branch_name,
+            &worktree_path.to_string_lossy(),
+            &default_branch,
+        ])
+        .current_dir(repo_path)
+        .output()?;
 
-    let branch = repo.branch(branch_name, &commit, false)?;
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(GitError::Io(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            format!("git worktree add failed: {}", stderr),
+        )));
+    }
 
-    // Create the worktree
-    repo.worktree(
-        branch_name,
-        worktree_path,
-        Some(git2::WorktreeAddOptions::new().reference(Some(branch.get()))),
-    )?;
-
+    log::info!("[git::create_worktree] Worktree created successfully");
     Ok(())
 }
 
@@ -365,39 +378,90 @@ fn has_modified_or_staged_changes(repo: &Repository) -> Result<bool, GitError> {
     Ok(!statuses.is_empty())
 }
 
-/// Stash uncommitted changes in a repository
-pub fn stash_changes(repo_path: &Path) -> Result<(), GitError> {
-    {
-        let mut repo = Repository::open(repo_path)?;
+/// Stash uncommitted changes in a repository using git CLI.
+/// Returns a unique stash ID that can be used with `stash_pop` to restore the correct stash.
+pub fn stash_changes(repo_path: &Path) -> Result<String, GitError> {
+    use std::process::Command;
+    use std::time::{SystemTime, UNIX_EPOCH};
 
-        let signature = repo.signature()?;
-        let message = "Auto-stash before worktree creation";
+    // Generate unique stash ID using timestamp + random suffix
+    let timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis();
+    let stash_id = format!("onemanband-auto-stash-{}", timestamp);
 
-        repo.stash_save(
-            &signature,
-            message,
-            Some(git2::StashFlags::INCLUDE_UNTRACKED),
-        )?;
+    log::info!("[stash_changes] Stashing changes in {:?} with id {}", repo_path, stash_id);
 
-        // repo is dropped here, releasing any locks
+    let output = Command::new("git")
+        .args(["stash", "push", "--include-untracked", "-m", &stash_id])
+        .current_dir(repo_path)
+        .output()?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(GitError::Io(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            format!("git stash failed: {}", stderr),
+        )));
     }
 
-    // Small delay to ensure index lock is fully released
-    std::thread::sleep(std::time::Duration::from_millis(100));
-
-    Ok(())
+    log::info!("[stash_changes] Stash successful with id {}", stash_id);
+    Ok(stash_id)
 }
 
-/// Pop the most recent stash
-pub fn stash_pop(repo_path: &Path) -> Result<(), GitError> {
-    let mut repo = Repository::open(repo_path)?;
+/// Pop a specific stash by its ID (message).
+/// Finds the stash with the matching message and pops it.
+pub fn stash_pop(repo_path: &Path, stash_id: &str) -> Result<(), GitError> {
+    use std::process::Command;
 
-    repo.stash_pop(0, None)?;
+    log::info!("[stash_pop] Looking for stash with id {} in {:?}", stash_id, repo_path);
 
-    // Drop repo and wait briefly to ensure locks are released
-    drop(repo);
-    std::thread::sleep(std::time::Duration::from_millis(50));
+    // List stashes to find the one with our ID
+    let output = Command::new("git")
+        .args(["stash", "list"])
+        .current_dir(repo_path)
+        .output()?;
 
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(GitError::Io(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            format!("git stash list failed: {}", stderr),
+        )));
+    }
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // Find the stash index that matches our ID
+    // Format: "stash@{0}: On branch: message"
+    let stash_ref = stdout
+        .lines()
+        .find(|line| line.contains(stash_id))
+        .and_then(|line| line.split(':').next())
+        .map(|s| s.trim().to_string());
+
+    let Some(stash_ref) = stash_ref else {
+        log::warn!("[stash_pop] Stash with id {} not found, nothing to pop", stash_id);
+        return Ok(());
+    };
+
+    log::info!("[stash_pop] Found stash at {}, popping", stash_ref);
+
+    let output = Command::new("git")
+        .args(["stash", "pop", &stash_ref])
+        .current_dir(repo_path)
+        .output()?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(GitError::Io(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            format!("git stash pop failed: {}", stderr),
+        )));
+    }
+
+    log::info!("[stash_pop] Stash pop successful");
     Ok(())
 }
 
