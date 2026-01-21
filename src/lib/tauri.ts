@@ -101,3 +101,9 @@ export async function cleanupWorktree(
     options,
   });
 }
+
+// Shutdown command - gracefully terminates all PTY processes
+// Returns true if there are processes to clean up (show UI), false otherwise
+export async function shutdown(): Promise<boolean> {
+  return invoke<boolean>('shutdown');
+}

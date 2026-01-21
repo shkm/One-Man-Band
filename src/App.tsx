@@ -8,10 +8,11 @@ import { Drawer, DrawerTab } from './components/Drawer/Drawer';
 import { DrawerTerminal } from './components/Drawer/DrawerTerminal';
 import { ConfirmModal } from './components/ConfirmModal';
 import { MergeModal } from './components/MergeModal';
+import { ShutdownScreen } from './components/ShutdownScreen';
 import { useWorktrees } from './hooks/useWorktrees';
 import { useGitStatus } from './hooks/useGitStatus';
 import { useConfig } from './hooks/useConfig';
-import { selectFolder } from './lib/tauri';
+import { selectFolder, shutdown } from './lib/tauri';
 import { sendOsNotification } from './lib/notifications';
 import { Project, Worktree } from './types';
 
@@ -83,6 +84,7 @@ function App() {
   const [loadingWorktrees, setLoadingWorktrees] = useState<Set<string>>(new Set());
   const [notifiedWorktreeIds, setNotifiedWorktreeIds] = useState<Set<string>>(new Set());
   const [thinkingWorktreeIds, setThinkingWorktreeIds] = useState<Set<string>>(new Set());
+  const [isShuttingDown, setIsShuttingDown] = useState(false);
 
   // Panel refs
   const rightPanelRef = useRef<PanelImperativeHandle>(null);
@@ -157,6 +159,26 @@ function App() {
       unlistenReady.then((fn) => fn());
     };
   }, []);
+
+  // Listen for window close requests - trigger graceful shutdown
+  useEffect(() => {
+    const unlistenClose = listen('close-requested', async () => {
+      // Prevent multiple shutdown attempts
+      if (isShuttingDown) return;
+
+      // Start the shutdown process - backend will exit the app when done
+      // Returns true if there are processes to clean up (show UI)
+      const hasProcesses = await shutdown();
+      if (hasProcesses) {
+        setIsShuttingDown(true);
+      }
+      // If no processes, app will exit immediately without showing UI
+    });
+
+    return () => {
+      unlistenClose.then((fn) => fn());
+    };
+  }, [isShuttingDown]);
 
   const { files: changedFiles } = useGitStatus(activeWorktree);
 
@@ -669,6 +691,9 @@ function App() {
 
   return (
     <div className="h-screen w-screen overflow-hidden flex flex-col bg-zinc-950">
+      {/* Shutdown screen overlay */}
+      <ShutdownScreen isVisible={isShuttingDown} />
+
       {pendingDeleteId && pendingWorktree && (
         <ConfirmModal
           title="Delete Worktree"

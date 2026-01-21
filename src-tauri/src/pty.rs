@@ -11,6 +11,9 @@ use tauri::{AppHandle, Emitter};
 use thiserror::Error;
 use uuid::Uuid;
 
+#[cfg(unix)]
+use std::process::Command;
+
 /// Get the user's PATH by running their login shell.
 /// This ensures we get the same PATH they'd have in a terminal.
 fn get_user_path() -> String {
@@ -88,6 +91,8 @@ lazy_static::lazy_static! {
     static ref PTY_MASTERS: Mutex<HashMap<String, Arc<Mutex<Box<dyn portable_pty::MasterPty + Send>>>>> = Mutex::new(HashMap::new());
     // Cache the user's PATH to avoid spawning shell on every PTY creation
     static ref CACHED_USER_PATH: Mutex<Option<String>> = Mutex::new(None);
+    // Track if shutdown is already in progress
+    static ref SHUTDOWN_IN_PROGRESS: AtomicBool = AtomicBool::new(false);
 }
 
 /// Get the user's PATH, using cached value if available
@@ -322,4 +327,199 @@ pub fn kill_pty(state: &AppState, pty_id: &str) -> Result<(), PtyError> {
     PTY_WRITERS.lock().remove(pty_id);
     PTY_MASTERS.lock().remove(pty_id);
     Ok(())
+}
+
+/// Shutdown progress event payload
+#[derive(Clone, serde::Serialize)]
+pub struct ShutdownProgress {
+    pub phase: String,
+    pub message: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub process_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pid: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub signal: Option<String>,
+}
+
+/// Check if a process is still running
+#[cfg(unix)]
+fn is_process_alive(pid: u32) -> bool {
+    // kill with signal 0 checks if process exists without sending a signal
+    unsafe { libc::kill(pid as i32, 0) == 0 }
+}
+
+/// Get process name from PID using ps command
+#[cfg(unix)]
+fn get_process_name(pid: u32) -> Option<String> {
+    Command::new("ps")
+        .args(["-p", &pid.to_string(), "-o", "comm="])
+        .output()
+        .ok()
+        .and_then(|output| {
+            if output.status.success() {
+                String::from_utf8(output.stdout)
+                    .ok()
+                    .map(|s| s.trim().to_string())
+                    .filter(|s| !s.is_empty())
+            } else {
+                None
+            }
+        })
+}
+
+/// Send a signal to a process
+#[cfg(unix)]
+fn send_signal(pid: u32, signal: i32) -> bool {
+    unsafe { libc::kill(pid as i32, signal) == 0 }
+}
+
+/// Get all child PIDs of a process (recursive)
+#[cfg(unix)]
+fn get_child_pids(pid: u32) -> Vec<u32> {
+    let mut children = Vec::new();
+
+    // Use pgrep to find children
+    if let Ok(output) = Command::new("pgrep")
+        .args(["-P", &pid.to_string()])
+        .output()
+    {
+        if output.status.success() {
+            if let Ok(stdout) = String::from_utf8(output.stdout) {
+                for line in stdout.lines() {
+                    if let Ok(child_pid) = line.trim().parse::<u32>() {
+                        // Recursively get children of this child
+                        children.extend(get_child_pids(child_pid));
+                        children.push(child_pid);
+                    }
+                }
+            }
+        }
+    }
+
+    children
+}
+
+/// Shutdown all PTY sessions gracefully with cascading signals
+/// Returns when all processes have been terminated
+#[cfg(unix)]
+pub fn shutdown_all_ptys(app: &AppHandle, state: &AppState) {
+    use libc::{SIGHUP, SIGKILL, SIGTERM};
+
+    // Prevent double-shutdown
+    if SHUTDOWN_IN_PROGRESS.swap(true, Ordering::SeqCst) {
+        return;
+    }
+
+    let emit_progress = |phase: &str, message: &str, process_name: Option<String>, pid: Option<u32>, signal: Option<&str>| {
+        let _ = app.emit("shutdown-progress", ShutdownProgress {
+            phase: phase.to_string(),
+            message: message.to_string(),
+            process_name,
+            pid,
+            signal: signal.map(|s| s.to_string()),
+        });
+    };
+
+    // Collect all PIDs and their children
+    let sessions: Vec<(String, u32)> = {
+        let sessions = state.pty_sessions.read();
+        sessions.iter().map(|(id, s)| (id.clone(), s.child_pid)).collect()
+    };
+
+    // If no sessions, emit complete immediately and return
+    if sessions.is_empty() {
+        emit_progress("complete", "Done", None, None, None);
+        return;
+    }
+
+    emit_progress("starting", "Cleaning up...", None, None, None);
+
+    // Build a list of all PIDs to kill (PTY processes + their children)
+    let mut all_pids: Vec<(u32, Option<String>)> = Vec::new();
+
+    for (_, pid) in &sessions {
+        if *pid == 0 || !is_process_alive(*pid) {
+            continue;
+        }
+
+        // Get children first (we want to kill them in reverse order: children before parents)
+        let children = get_child_pids(*pid);
+        for child_pid in children {
+            if is_process_alive(child_pid) {
+                let name = get_process_name(child_pid);
+                all_pids.push((child_pid, name));
+            }
+        }
+
+        // Then add the parent
+        let name = get_process_name(*pid);
+        all_pids.push((*pid, name));
+    }
+
+    // Remove duplicates while preserving order
+    let mut seen = std::collections::HashSet::new();
+    all_pids.retain(|(pid, _)| seen.insert(*pid));
+
+    emit_progress("signaling", &format!("Terminating {} processes...", all_pids.len()), None, None, None);
+
+    // Phase 1: Send SIGHUP to all processes
+    for (pid, _) in &all_pids {
+        if is_process_alive(*pid) {
+            send_signal(*pid, SIGHUP);
+        }
+    }
+
+    // Wait for processes to exit
+    thread::sleep(Duration::from_millis(500));
+
+    // Phase 2: Send SIGTERM to remaining processes
+    let remaining: Vec<_> = all_pids.iter().filter(|(pid, _)| is_process_alive(*pid)).cloned().collect();
+    if !remaining.is_empty() {
+        for (pid, _) in &remaining {
+            if is_process_alive(*pid) {
+                send_signal(*pid, SIGTERM);
+            }
+        }
+        thread::sleep(Duration::from_millis(500));
+    }
+
+    // Phase 3: Force kill any remaining processes
+    let remaining: Vec<_> = all_pids.iter().filter(|(pid, _)| is_process_alive(*pid)).cloned().collect();
+    if !remaining.is_empty() {
+        emit_progress("signaling", &format!("Force killing {} processes...", remaining.len()), None, None, None);
+        for (pid, _) in &remaining {
+            if is_process_alive(*pid) {
+                send_signal(*pid, SIGKILL);
+            }
+        }
+    }
+
+    // Clean up internal state
+    for (pty_id, _) in &sessions {
+        state.pty_sessions.write().remove(pty_id);
+        PTY_WRITERS.lock().remove(pty_id);
+        PTY_MASTERS.lock().remove(pty_id);
+    }
+
+    emit_progress("complete", "All processes terminated", None, None, None);
+}
+
+#[cfg(not(unix))]
+pub fn shutdown_all_ptys(app: &AppHandle, state: &AppState) {
+    // On non-Unix platforms, just clean up the state
+    let _ = app.emit("shutdown-progress", ShutdownProgress {
+        phase: "complete".to_string(),
+        message: "Cleanup complete".to_string(),
+        process_name: None,
+        pid: None,
+        signal: None,
+    });
+
+    let pty_ids: Vec<String> = state.pty_sessions.read().keys().cloned().collect();
+    for pty_id in pty_ids {
+        state.pty_sessions.write().remove(&pty_id);
+        PTY_WRITERS.lock().remove(&pty_id);
+        PTY_MASTERS.lock().remove(&pty_id);
+    }
 }

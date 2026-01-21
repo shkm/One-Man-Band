@@ -13,7 +13,8 @@ use state::{AppState, FileChange, Project, Worktree};
 use std::path::Path;
 use std::sync::Arc;
 use std::time::Instant;
-use tauri::{AppHandle, Emitter, State};
+use tauri::menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder};
+use tauri::{AppHandle, Emitter, Manager, State};
 
 type Result<T> = std::result::Result<T, String>;
 
@@ -517,6 +518,37 @@ fn cleanup_worktree(
     Ok(())
 }
 
+// Shutdown command - gracefully terminates all PTY processes
+// Spawns a background thread and returns immediately so events can stream to frontend
+#[tauri::command]
+fn shutdown(app: AppHandle, state: State<'_, Arc<AppState>>) -> bool {
+    info!("[Shutdown] Starting graceful shutdown...");
+
+    // Check if there are any active PTY sessions
+    let has_sessions = !state.pty_sessions.read().is_empty();
+
+    let app_clone = app.clone();
+    let state_clone = Arc::clone(&state);
+
+    // Run shutdown in a background thread so events stream to frontend
+    std::thread::spawn(move || {
+        pty::shutdown_all_ptys(&app_clone, &state_clone);
+        watcher::stop_all_watchers();
+        info!("[Shutdown] Shutdown complete, exiting app");
+
+        // Only delay if we had processes to show in the UI
+        if has_sessions {
+            std::thread::sleep(std::time::Duration::from_millis(300));
+        }
+
+        // Exit the app
+        app_clone.exit(0);
+    });
+
+    // Return whether we have sessions (so frontend knows whether to show UI)
+    has_sessions
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
@@ -528,6 +560,34 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
         .manage(app_state)
+        .setup(|app| {
+            // Create custom app menu with our own Quit handler
+            let quit_item = MenuItemBuilder::with_id("quit", "Quit One Man Band")
+                .accelerator("CmdOrCtrl+Q")
+                .build(app)?;
+
+            let app_submenu = SubmenuBuilder::new(app, "One Man Band")
+                .item(&quit_item)
+                .build()?;
+
+            let menu = MenuBuilder::new(app)
+                .item(&app_submenu)
+                .build()?;
+
+            app.set_menu(menu)?;
+
+            // Handle our custom quit menu item
+            app.on_menu_event(move |app_handle, event| {
+                if event.id().as_ref() == "quit" {
+                    // Trigger graceful shutdown via window close
+                    if let Some(window) = app_handle.get_webview_window("main") {
+                        let _ = window.emit("close-requested", ());
+                    }
+                }
+            });
+
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             add_project,
             list_projects,
@@ -547,12 +607,27 @@ pub fn run() {
             check_merge_feasibility,
             execute_merge_workflow,
             cleanup_worktree,
+            shutdown,
         ])
-        .on_window_event(|_window, event| {
-            if let tauri::WindowEvent::Destroyed = event {
-                watcher::stop_all_watchers();
+        .on_window_event(|window, event| {
+            match event {
+                tauri::WindowEvent::CloseRequested { api, .. } => {
+                    // Prevent default close - let frontend handle it
+                    api.prevent_close();
+                    // Emit event to frontend to trigger shutdown flow
+                    let _ = window.emit("close-requested", ());
+                }
+                tauri::WindowEvent::Destroyed => {
+                    // Final cleanup (in case frontend didn't trigger shutdown)
+                    watcher::stop_all_watchers();
+                }
+                _ => {}
             }
         })
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|_app, _event| {
+            // ExitRequested is handled via custom Quit menu item
+            // No additional handling needed here
+        });
 }

@@ -2685,6 +2685,7 @@ dependencies = [
  "glob",
  "json-strip-comments",
  "lazy_static",
+ "libc",
  "log",
  "notify",
  "openssl",
