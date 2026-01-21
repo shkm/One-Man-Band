@@ -54,6 +54,9 @@
     "worktree6": { "mac": "cmd+6", "other": "ctrl+6" },
     "worktree7": { "mac": "cmd+7", "other": "ctrl+7" },
     "worktree8": { "mac": "cmd+8", "other": "ctrl+8" },
-    "worktree9": { "mac": "cmd+9", "other": "ctrl+9" }
+    "worktree9": { "mac": "cmd+9", "other": "ctrl+9" },
+    "runTask": { "mac": "cmd+r", "other": "ctrl+shift+r" },
+    "newWorkspace": { "mac": "cmd+n", "other": "ctrl+n" },
+    "switchFocus": "ctrl+\\"
   }
 }

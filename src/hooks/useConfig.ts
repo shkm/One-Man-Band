@@ -62,6 +62,9 @@ export interface MappingsConfig {
   worktree7: Shortcut;
   worktree8: Shortcut;
   worktree9: Shortcut;
+  runTask: Shortcut;
+  newWorkspace: Shortcut;
+  switchFocus: Shortcut;
 }
 
 export interface Config {
@@ -90,22 +93,27 @@ const defaultConfig: Config = {
     deleteLocalBranch: false,
     deleteRemoteBranch: false,
   },
+  // Mappings are loaded from backend (default_config.jsonc is single source of truth)
+  // These are placeholder values used only until backend config loads
   mappings: {
-    toggleDrawer: 'ctrl+`',
-    toggleRightPanel: 'cmd+b',
-    terminalCopy: { mac: 'cmd+c', other: 'ctrl+shift+c' },
-    terminalPaste: { mac: 'cmd+v', other: 'ctrl+shift+v' },
-    worktreePrev: { mac: 'cmd+k', other: 'ctrl+shift+k' },
-    worktreeNext: { mac: 'cmd+j', other: 'ctrl+shift+j' },
-    worktree1: { mac: 'cmd+1', other: 'ctrl+1' },
-    worktree2: { mac: 'cmd+2', other: 'ctrl+2' },
-    worktree3: { mac: 'cmd+3', other: 'ctrl+3' },
-    worktree4: { mac: 'cmd+4', other: 'ctrl+4' },
-    worktree5: { mac: 'cmd+5', other: 'ctrl+5' },
-    worktree6: { mac: 'cmd+6', other: 'ctrl+6' },
-    worktree7: { mac: 'cmd+7', other: 'ctrl+7' },
-    worktree8: { mac: 'cmd+8', other: 'ctrl+8' },
-    worktree9: { mac: 'cmd+9', other: 'ctrl+9' },
+    toggleDrawer: '',
+    toggleRightPanel: '',
+    terminalCopy: '',
+    terminalPaste: '',
+    worktreePrev: '',
+    worktreeNext: '',
+    worktree1: '',
+    worktree2: '',
+    worktree3: '',
+    worktree4: '',
+    worktree5: '',
+    worktree6: '',
+    worktree7: '',
+    worktree8: '',
+    worktree9: '',
+    runTask: '',
+    newWorkspace: '',
+    switchFocus: '',
   },
   tasks: [],
 };
