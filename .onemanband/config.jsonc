@@ -1,0 +1,15 @@
+{
+  "$schema": "../src-tauri/src/config.schema.json",
+  "tasks": [
+    {
+      "name": "Dev",
+      "command": "npm run tauri dev",
+      "kind": "daemon",
+    },
+    {
+      "name": "Dev",
+      "command": "npm run tauri build",
+      "kind": "command",
+    },
+  ],
+}
