@@ -692,6 +692,13 @@ function App() {
       if (activeWorktreeId === worktreeId) {
         const remaining = Array.from(openWorktreeIds).filter(id => id !== worktreeId);
         setActiveWorktreeId(remaining.length > 0 ? remaining[remaining.length - 1] : null);
+        // Close drawer and right panel when no worktrees remain
+        if (remaining.length === 0) {
+          setIsDrawerOpen(false);
+          drawerPanelRef.current?.collapse();
+          setIsRightPanelOpen(false);
+          rightPanelRef.current?.collapse();
+        }
       }
     },
     [activeWorktreeId, openWorktreeIds]
@@ -740,6 +747,13 @@ function App() {
       if (activeWorktreeId === pendingDeleteId) {
         const remaining = Array.from(openWorktreeIds).filter(id => id !== pendingDeleteId);
         setActiveWorktreeId(remaining.length > 0 ? remaining[remaining.length - 1] : null);
+        // Close drawer and right panel when no worktrees remain
+        if (remaining.length === 0) {
+          setIsDrawerOpen(false);
+          drawerPanelRef.current?.collapse();
+          setIsRightPanelOpen(false);
+          rightPanelRef.current?.collapse();
+        }
       }
     } catch (err) {
       console.error('Failed to delete worktree:', err);
@@ -827,13 +841,23 @@ function App() {
       if (activeWorktreeId && projectWorktreeIds.has(activeWorktreeId)) {
         setActiveWorktreeId(null);
       }
+      // Close drawer and right panel when no worktrees remain
+      const remainingOpenWorktrees = Array.from(openWorktreeIds).filter(
+        id => !projectWorktreeIds.has(id)
+      );
+      if (remainingOpenWorktrees.length === 0) {
+        setIsDrawerOpen(false);
+        drawerPanelRef.current?.collapse();
+        setIsRightPanelOpen(false);
+        rightPanelRef.current?.collapse();
+      }
       await removeProject(pendingRemoveProject.id);
     } catch (err) {
       console.error('Failed to remove project:', err);
     } finally {
       setPendingRemoveProject(null);
     }
-  }, [removeProject, pendingRemoveProject, activeWorktreeId]);
+  }, [removeProject, pendingRemoveProject, activeWorktreeId, openWorktreeIds]);
 
 
   const pendingWorktree = pendingDeleteId
