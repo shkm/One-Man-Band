@@ -52,10 +52,12 @@ export function attachKeyboardHandlers(
       return false; // Prevent default handling
     }
 
-    // Shift+Enter: Send kitty keyboard protocol sequence for newline
+    // Shift+Enter: Send LF for newline insertion in multi-line input
     if (event.shiftKey && event.key === 'Enter') {
-      write('\x1b[13;2u');
-      return false; // Prevent default handling
+      event.preventDefault();
+      event.stopPropagation();
+      write('\x0a');
+      return false; // Prevent xterm.js handling
     }
 
     return true; // Let xterm.js handle normally
