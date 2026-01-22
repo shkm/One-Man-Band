@@ -84,7 +84,7 @@ So that's why I built One Man Band (see what I did there?). Now I can run Claude
 | Shortcut                                 | Action                               |
 | ---------------------------------------- | ------------------------------------ |
 | `Ctrl+\``                                | Toggle drawer (terminal panel)       |
-| `Ctrl+\`                                 | Switch focus between main and drawer |
+| `Ctrl+\``                                | Switch focus between main and drawer |
 | `Cmd+B`                                  | Toggle right sidebar (changed files) |
 | `Cmd+;` (macOS) / `Ctrl+;` (other)       | Open task switcher                   |
 | `Cmd+R` (macOS) / `Ctrl+Shift+R` (other) | Run/stop selected task               |
