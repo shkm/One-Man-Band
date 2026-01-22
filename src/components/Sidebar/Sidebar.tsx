@@ -329,7 +329,7 @@ export function Sidebar({
                   <SortableProject key={project.id} projectId={project.id}>
                     <div className="mb-2">
                       <div
-                        className={`group relative flex items-center py-1 pr-2 rounded cursor-grab active:cursor-grabbing ${
+                        className={`group relative flex items-center py-1 pr-2 rounded active:cursor-grabbing ${
                           isProjectSelected
                             ? 'bg-zinc-700 text-zinc-100'
                             : hasOpenWorktrees || isProjectOpen
@@ -454,7 +454,7 @@ export function Sidebar({
                                   <SortableWorktree key={worktree.id} worktreeId={worktree.id} projectId={project.id}>
                                     <div
                                       onClick={() => onSelectWorktree(worktree)}
-                                      className={`group/worktree relative flex items-center py-1 pr-2 text-sm cursor-grab active:cursor-grabbing ${
+                                      className={`group/worktree relative flex items-center py-1 pr-2 text-sm active:cursor-grabbing ${
                                         isSelected
                                           ? 'bg-zinc-700 text-zinc-100'
                                           : isOpen
