@@ -284,6 +284,7 @@ export function Sidebar({
     <div className="flex flex-col h-full bg-zinc-900 select-none">
       {/* Drag region for macOS traffic lights */}
       <DragRegion className="h-8 flex-shrink-0 flex items-center justify-end px-1">
+        <span className="text-[10px] text-zinc-600 font-mono mr-1">{__GIT_HASH__.slice(0, 7)}</span>
         <button
           onClick={handleOptionsClick}
           className="p-1 rounded hover:bg-zinc-800 text-zinc-500 hover:text-zinc-300"

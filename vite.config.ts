@@ -1,13 +1,32 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
+import { execSync } from "child_process";
 
 // @ts-expect-error process is a nodejs global
 const host = process.env.TAURI_DEV_HOST;
 
+// Get git commit hash: use GITHUB_SHA in CI, otherwise run git locally
+function getGitHash(): string {
+  // @ts-expect-error process is a nodejs global
+  if (process.env.GITHUB_SHA) {
+    // @ts-expect-error process is a nodejs global
+    return process.env.GITHUB_SHA.slice(0, 7);
+  }
+  try {
+    return execSync("git rev-parse --short HEAD").toString().trim();
+  } catch {
+    return "unknown";
+  }
+}
+
 // https://vite.dev/config/
 export default defineConfig(async () => ({
   plugins: [react(), tailwindcss()],
+
+  define: {
+    __GIT_HASH__: JSON.stringify(getGitHash()),
+  },
 
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   //
