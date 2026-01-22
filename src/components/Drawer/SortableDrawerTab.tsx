@@ -50,7 +50,7 @@ export function SortableDrawerTab({
       {...attributes}
       {...listeners}
       onClick={onSelect}
-      className={`flex items-center gap-2 px-3 border-r border-zinc-800 min-w-0 cursor-grab active:cursor-grabbing ${
+      className={`flex items-center gap-2 px-3 border-r border-zinc-800 min-w-0 active:cursor-grabbing ${
         isActive
           ? 'bg-zinc-800 text-zinc-100'
           : 'bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200'
