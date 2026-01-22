@@ -19,11 +19,29 @@ export function ConfirmModal({
   onModalOpen,
   onModalClose,
 }: ConfirmModalProps) {
+  const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+
   // Register modal open/close for app-wide tracking
   useEffect(() => {
     onModalOpen?.();
     return () => onModalClose?.();
   }, [onModalOpen, onModalClose]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        onCancel();
+      } else if (e.key === 'Enter' && (isMac ? e.metaKey : e.ctrlKey)) {
+        e.preventDefault();
+        onConfirm();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [onCancel, onConfirm, isMac]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -34,15 +52,17 @@ export function ConfirmModal({
         <div className="flex justify-end gap-3">
           <button
             onClick={onCancel}
-            className="px-4 py-2 text-sm text-zinc-300 hover:text-zinc-100 hover:bg-zinc-800 rounded"
+            className="px-4 py-2 text-sm text-zinc-300 hover:text-zinc-100 hover:bg-zinc-800 rounded inline-flex items-center gap-2"
           >
             Cancel
+            <kbd className="px-1.5 py-0.5 text-[10px] bg-zinc-800 rounded text-zinc-500">Esc</kbd>
           </button>
           <button
             onClick={onConfirm}
-            className="px-4 py-2 text-sm bg-red-600 hover:bg-red-500 text-white rounded"
+            className="px-4 py-2 text-sm bg-red-600 hover:bg-red-500 text-white rounded inline-flex items-center gap-2"
           >
             {confirmLabel}
+            <kbd className="px-1.5 py-0.5 text-[10px] bg-red-700/50 rounded text-red-200">{isMac ? '⌘' : 'Ctrl'}↵</kbd>
           </button>
         </div>
       </div>

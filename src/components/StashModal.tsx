@@ -19,11 +19,31 @@ export function StashModal({
   onModalOpen,
   onModalClose,
 }: StashModalProps) {
+  const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+
   // Register modal open/close for app-wide tracking
   useEffect(() => {
     onModalOpen?.();
     return () => onModalClose?.();
   }, [onModalOpen, onModalClose]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (isLoading) return;
+
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        onCancel();
+      } else if (e.key === 'Enter' && (isMac ? e.metaKey : e.ctrlKey)) {
+        e.preventDefault();
+        onStashAndCreate();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [onCancel, onStashAndCreate, isLoading, isMac]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -51,9 +71,10 @@ export function StashModal({
           <button
             onClick={onCancel}
             disabled={isLoading}
-            className="px-4 py-2 text-sm text-zinc-300 hover:text-zinc-100 hover:bg-zinc-800 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-4 py-2 text-sm text-zinc-300 hover:text-zinc-100 hover:bg-zinc-800 rounded disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
           >
             Cancel
+            <kbd className="px-1.5 py-0.5 text-[10px] bg-zinc-800 rounded text-zinc-500">Esc</kbd>
           </button>
           <button
             onClick={onStashAndCreate}
@@ -84,6 +105,9 @@ export function StashModal({
               'Retry'
             ) : (
               'Stash & Create'
+            )}
+            {!isLoading && (
+              <kbd className="px-1.5 py-0.5 text-[10px] bg-blue-700/50 rounded text-blue-200">{isMac ? '⌘' : 'Ctrl'}↵</kbd>
             )}
           </button>
         </div>

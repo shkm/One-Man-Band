@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { listen } from '@tauri-apps/api/event';
 import { GitMerge, AlertCircle, CheckCircle, Loader2, AlertTriangle } from 'lucide-react';
 import { Worktree, MergeFeasibility, MergeStrategy, MergeProgress } from '../types';
@@ -59,7 +59,9 @@ export function MergeModal({
     };
   }, []);
 
-  const handleMerge = async () => {
+  const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+
+  const handleMerge = useCallback(async () => {
     setExecuting(true);
     setError(null);
 
@@ -81,9 +83,9 @@ export function MergeModal({
       setError(err instanceof Error ? err.message : String(err));
       setExecuting(false);
     }
-  };
+  }, [worktree.id, strategy, deleteWorktree, deleteLocalBranch, deleteRemoteBranch, onMergeComplete]);
 
-  const handleCleanup = async () => {
+  const handleCleanup = useCallback(async () => {
     // Only allow cleanup if at least one option is selected
     if (!deleteWorktree && !deleteLocalBranch && !deleteRemoteBranch) {
       setError('Select at least one cleanup option');
@@ -105,7 +107,7 @@ export function MergeModal({
       setError(err instanceof Error ? err.message : String(err));
       setExecuting(false);
     }
-  };
+  }, [worktree.id, deleteWorktree, deleteLocalBranch, deleteRemoteBranch, onMergeComplete]);
 
   const renderStatus = () => {
     if (loading) {
@@ -204,6 +206,27 @@ export function MergeModal({
 
   const canExecute = feasibility?.canMerge && !executing && !error;
   const canCleanup = feasibility && !feasibility.canMerge && !feasibility.hasUncommittedChanges && !executing && !error;
+  const showCleanupButton = canCleanup && (deleteWorktree || deleteLocalBranch || deleteRemoteBranch);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !executing) {
+        e.preventDefault();
+        onClose();
+      } else if (e.key === 'Enter' && (isMac ? e.metaKey : e.ctrlKey)) {
+        e.preventDefault();
+        if (canExecute) {
+          handleMerge();
+        } else if (showCleanupButton) {
+          handleCleanup();
+        }
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [onClose, executing, canExecute, showCleanupButton, handleMerge, handleCleanup, isMac]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -337,9 +360,12 @@ export function MergeModal({
           <button
             onClick={onClose}
             disabled={executing}
-            className="px-4 py-2 text-sm text-zinc-300 hover:text-zinc-100 hover:bg-zinc-800 rounded disabled:opacity-50"
+            className="px-4 py-2 text-sm text-zinc-300 hover:text-zinc-100 hover:bg-zinc-800 rounded disabled:opacity-50 inline-flex items-center gap-2"
           >
             {executing ? 'Close' : 'Cancel'}
+            {!executing && (
+              <kbd className="px-1.5 py-0.5 text-[10px] bg-zinc-800 rounded text-zinc-500">Esc</kbd>
+            )}
           </button>
           {canExecute && (
             <button
@@ -348,14 +374,16 @@ export function MergeModal({
             >
               <GitMerge size={14} />
               {strategy === 'rebase' ? 'Rebase & Merge' : 'Merge'}
+              <kbd className="px-1.5 py-0.5 text-[10px] bg-blue-700/50 rounded text-blue-200">{isMac ? '⌘' : 'Ctrl'}↵</kbd>
             </button>
           )}
-          {canCleanup && (deleteWorktree || deleteLocalBranch || deleteRemoteBranch) && (
+          {showCleanupButton && (
             <button
               onClick={handleCleanup}
-              className="px-4 py-2 text-sm bg-red-600 hover:bg-red-500 text-white rounded"
+              className="px-4 py-2 text-sm bg-red-600 hover:bg-red-500 text-white rounded inline-flex items-center gap-2"
             >
-              Clean Up
+Clean Up
+              <kbd className="px-1.5 py-0.5 text-[10px] bg-red-700/50 rounded text-red-200">{isMac ? '⌘' : 'Ctrl'}↵</kbd>
             </button>
           )}
         </div>
