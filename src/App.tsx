@@ -3,7 +3,6 @@ import { Group as PanelGroup, Panel, Separator as PanelResizeHandle, PanelImpera
 import { listen } from '@tauri-apps/api/event';
 import { Sidebar } from './components/Sidebar/Sidebar';
 import { MainPane } from './components/MainPane/MainPane';
-import { ProjectPane } from './components/MainPane/ProjectPane';
 import { RightPanel } from './components/RightPanel/RightPanel';
 import { Drawer, DrawerTab } from './components/Drawer/Drawer';
 import { DrawerTerminal } from './components/Drawer/DrawerTerminal';
@@ -116,42 +115,46 @@ function App() {
     localStorage.setItem(SELECTED_TASKS_KEY, JSON.stringify(obj));
   }, [selectedTasksByProject]);
 
-  // Get current worktree's drawer tabs
-  const activeDrawerTabs = activeWorktreeId ? drawerTabs.get(activeWorktreeId) ?? [] : [];
-  const activeDrawerTabId = activeWorktreeId ? drawerActiveTabIds.get(activeWorktreeId) ?? null : null;
+  // Active entity ID - worktree takes precedence, otherwise use project
+  // This allows drawer/focus/task state to work for both views
+  const activeEntityId = activeWorktreeId ?? activeProjectId;
 
-  // Get current worktree's focus state (defaults to 'main')
-  const activeFocusState = activeWorktreeId ? focusStates.get(activeWorktreeId) ?? 'main' : 'main';
+  // Get current entity's drawer tabs (works for both worktrees and projects)
+  const activeDrawerTabs = activeEntityId ? drawerTabs.get(activeEntityId) ?? [] : [];
+  const activeDrawerTabId = activeEntityId ? drawerActiveTabIds.get(activeEntityId) ?? null : null;
 
-  // Create a drawer tab when drawer is open but current worktree has no tabs
+  // Get current entity's focus state (defaults to 'main')
+  const activeFocusState = activeEntityId ? focusStates.get(activeEntityId) ?? 'main' : 'main';
+
+  // Create a drawer tab when drawer is open but current entity has no tabs
   useEffect(() => {
-    if (!activeWorktreeId || !isDrawerOpen) return;
+    if (!activeEntityId || !isDrawerOpen) return;
     if (activeDrawerTabs.length > 0) return;
 
-    const currentCounter = drawerTabCounters.get(activeWorktreeId) ?? 0;
+    const currentCounter = drawerTabCounters.get(activeEntityId) ?? 0;
     const newCounter = currentCounter + 1;
     const newTab: DrawerTab = {
-      id: `${activeWorktreeId}-drawer-${newCounter}`,
+      id: `${activeEntityId}-drawer-${newCounter}`,
       label: `Terminal ${newCounter}`,
       type: 'terminal',
     };
 
     setDrawerTabs((prev) => {
       const next = new Map(prev);
-      next.set(activeWorktreeId, [newTab]);
+      next.set(activeEntityId, [newTab]);
       return next;
     });
     setDrawerActiveTabIds((prev) => {
       const next = new Map(prev);
-      next.set(activeWorktreeId, newTab.id);
+      next.set(activeEntityId, newTab.id);
       return next;
     });
     setDrawerTabCounters((prev) => {
       const next = new Map(prev);
-      next.set(activeWorktreeId, newCounter);
+      next.set(activeEntityId, newCounter);
       return next;
     });
-  }, [activeWorktreeId, isDrawerOpen, activeDrawerTabs.length, drawerTabCounters]);
+  }, [activeEntityId, isDrawerOpen, activeDrawerTabs.length, drawerTabCounters]);
 
   // Modal state
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
@@ -342,7 +345,7 @@ function App() {
 
   // Toggle drawer handler (used by both keyboard shortcut and button)
   const handleToggleDrawer = useCallback(() => {
-    if (!activeWorktreeId) return;
+    if (!activeEntityId) return;
 
     const panel = drawerPanelRef.current;
     const willOpen = !isDrawerOpen;
@@ -355,30 +358,30 @@ function App() {
       }
     }
 
-    // Create first tab if opening drawer with no tabs for this worktree
+    // Create first tab if opening drawer with no tabs for this entity
     if (willOpen) {
-      const currentTabs = drawerTabs.get(activeWorktreeId) ?? [];
+      const currentTabs = drawerTabs.get(activeEntityId) ?? [];
       if (currentTabs.length === 0) {
-        const currentCounter = drawerTabCounters.get(activeWorktreeId) ?? 0;
+        const currentCounter = drawerTabCounters.get(activeEntityId) ?? 0;
         const newCounter = currentCounter + 1;
         const newTab: DrawerTab = {
-          id: `${activeWorktreeId}-drawer-${newCounter}`,
+          id: `${activeEntityId}-drawer-${newCounter}`,
           label: `Terminal ${newCounter}`,
           type: 'terminal',
         };
         setDrawerTabs((prev) => {
           const next = new Map(prev);
-          next.set(activeWorktreeId, [newTab]);
+          next.set(activeEntityId, [newTab]);
           return next;
         });
         setDrawerActiveTabIds((prev) => {
           const next = new Map(prev);
-          next.set(activeWorktreeId, newTab.id);
+          next.set(activeEntityId, newTab.id);
           return next;
         });
         setDrawerTabCounters((prev) => {
           const next = new Map(prev);
-          next.set(activeWorktreeId, newCounter);
+          next.set(activeEntityId, newCounter);
           return next;
         });
       }
@@ -389,18 +392,18 @@ function App() {
     // Focus the drawer when opening, main when closing
     setFocusStates((prev) => {
       const target = willOpen ? 'drawer' : 'main';
-      if (prev.get(activeWorktreeId) === target) return prev;
+      if (prev.get(activeEntityId) === target) return prev;
       const next = new Map(prev);
-      next.set(activeWorktreeId, target);
+      next.set(activeEntityId, target);
       return next;
     });
 
     dispatchPanelResizeComplete();
-  }, [activeWorktreeId, isDrawerOpen, drawerTabs, drawerTabCounters, dispatchPanelResizeComplete]);
+  }, [activeEntityId, isDrawerOpen, drawerTabs, drawerTabCounters, dispatchPanelResizeComplete]);
 
   // Toggle right panel handler
   const handleToggleRightPanel = useCallback(() => {
-    if (!activeWorktreeId) return;
+    if (!activeEntityId) return;
 
     const panel = rightPanelRef.current;
     const willOpen = !isRightPanelOpen;
@@ -415,7 +418,7 @@ function App() {
 
     setIsRightPanelOpen(willOpen);
     dispatchPanelResizeComplete();
-  }, [activeWorktreeId, isRightPanelOpen, dispatchPanelResizeComplete]);
+  }, [activeEntityId, isRightPanelOpen, dispatchPanelResizeComplete]);
 
   // Worktree notification handler
   const handleWorktreeNotification = useCallback((worktreeId: string, title: string, body: string) => {
@@ -490,102 +493,102 @@ function App() {
 
   // Add new drawer tab handler
   const handleAddDrawerTab = useCallback(() => {
-    if (!activeWorktreeId) return;
+    if (!activeEntityId) return;
 
-    const currentCounter = drawerTabCounters.get(activeWorktreeId) ?? 0;
+    const currentCounter = drawerTabCounters.get(activeEntityId) ?? 0;
     const newCounter = currentCounter + 1;
     const newTab: DrawerTab = {
-      id: `${activeWorktreeId}-drawer-${newCounter}`,
+      id: `${activeEntityId}-drawer-${newCounter}`,
       label: `Terminal ${newCounter}`,
       type: 'terminal',
     };
 
     setDrawerTabs((prev) => {
-      const currentTabs = prev.get(activeWorktreeId) ?? [];
+      const currentTabs = prev.get(activeEntityId) ?? [];
       const next = new Map(prev);
-      next.set(activeWorktreeId, [...currentTabs, newTab]);
+      next.set(activeEntityId, [...currentTabs, newTab]);
       return next;
     });
     setDrawerActiveTabIds((prev) => {
       const next = new Map(prev);
-      next.set(activeWorktreeId, newTab.id);
+      next.set(activeEntityId, newTab.id);
       return next;
     });
     setDrawerTabCounters((prev) => {
       const next = new Map(prev);
-      next.set(activeWorktreeId, newCounter);
+      next.set(activeEntityId, newCounter);
       return next;
     });
 
     // Focus the drawer when adding a new tab
     setFocusStates((prev) => {
-      if (prev.get(activeWorktreeId) === 'drawer') return prev;
+      if (prev.get(activeEntityId) === 'drawer') return prev;
       const next = new Map(prev);
-      next.set(activeWorktreeId, 'drawer');
+      next.set(activeEntityId, 'drawer');
       return next;
     });
-  }, [activeWorktreeId, drawerTabCounters]);
+  }, [activeEntityId, drawerTabCounters]);
 
   // Select drawer tab handler
   const handleSelectDrawerTab = useCallback((tabId: string) => {
-    if (!activeWorktreeId) return;
+    if (!activeEntityId) return;
     setDrawerActiveTabIds((prev) => {
       const next = new Map(prev);
-      next.set(activeWorktreeId, tabId);
+      next.set(activeEntityId, tabId);
       return next;
     });
     // Also set focus to drawer when clicking a tab
     setFocusStates((prev) => {
-      if (prev.get(activeWorktreeId) === 'drawer') return prev;
+      if (prev.get(activeEntityId) === 'drawer') return prev;
       const next = new Map(prev);
-      next.set(activeWorktreeId, 'drawer');
+      next.set(activeEntityId, 'drawer');
       return next;
     });
-  }, [activeWorktreeId]);
+  }, [activeEntityId]);
 
   // Close drawer tab handler
-  const handleCloseDrawerTab = useCallback((tabId: string, worktreeId?: string) => {
-    const targetWorktreeId = worktreeId ?? activeWorktreeId;
-    if (!targetWorktreeId) return;
+  const handleCloseDrawerTab = useCallback((tabId: string, entityId?: string) => {
+    const targetEntityId = entityId ?? activeEntityId;
+    if (!targetEntityId) return;
 
-    const currentTabs = drawerTabs.get(targetWorktreeId) ?? [];
+    const currentTabs = drawerTabs.get(targetEntityId) ?? [];
     const remaining = currentTabs.filter(t => t.id !== tabId);
 
-    // If closing the last tab for the active worktree, collapse the drawer panel and focus main
-    if (remaining.length === 0 && targetWorktreeId === activeWorktreeId) {
+    // If closing the last tab for the active entity, collapse the drawer panel and focus main
+    if (remaining.length === 0 && targetEntityId === activeEntityId) {
       drawerPanelRef.current?.collapse();
       setIsDrawerOpen(false);
       // Focus back to main pane when closing last drawer tab
       setFocusStates((prev) => {
-        if (prev.get(targetWorktreeId) === 'main') return prev;
+        if (prev.get(targetEntityId) === 'main') return prev;
         const next = new Map(prev);
-        next.set(targetWorktreeId, 'main');
+        next.set(targetEntityId, 'main');
         return next;
       });
     }
 
     setDrawerTabs((prev) => {
       const next = new Map(prev);
-      next.set(targetWorktreeId, remaining);
+      next.set(targetEntityId, remaining);
       return next;
     });
 
     // Update active tab if needed
-    const currentActiveTabId = drawerActiveTabIds.get(targetWorktreeId);
+    const currentActiveTabId = drawerActiveTabIds.get(targetEntityId);
     if (currentActiveTabId === tabId && remaining.length > 0) {
       setDrawerActiveTabIds((prev) => {
         const next = new Map(prev);
-        next.set(targetWorktreeId, remaining[remaining.length - 1].id);
+        next.set(targetEntityId, remaining[remaining.length - 1].id);
         return next;
       });
     } else if (remaining.length === 0) {
       setDrawerActiveTabIds((prev) => {
         const next = new Map(prev);
-        next.delete(targetWorktreeId);
+        next.delete(targetEntityId);
         return next;
       });
     }
-  }, [activeWorktreeId, drawerTabs, drawerActiveTabIds]);
+  }, [activeEntityId, drawerTabs, drawerActiveTabIds]);
 
   // Focus state handlers - track which pane has focus per worktree
   const handleMainPaneFocused = useCallback((worktreeId: string) => {
@@ -608,9 +611,9 @@ function App() {
 
   // Switch focus between main and drawer panes
   const handleSwitchFocus = useCallback(() => {
-    if (!activeWorktreeId) return;
+    if (!activeEntityId) return;
 
-    const currentFocus = focusStates.get(activeWorktreeId) ?? 'main';
+    const currentFocus = focusStates.get(activeEntityId) ?? 'main';
     const newFocus = currentFocus === 'main' ? 'drawer' : 'main';
 
     // If switching to drawer and it's not open, open it
@@ -621,28 +624,28 @@ function App() {
       }
 
       // Create first tab if none exist
-      const currentTabs = drawerTabs.get(activeWorktreeId) ?? [];
+      const currentTabs = drawerTabs.get(activeEntityId) ?? [];
       if (currentTabs.length === 0) {
-        const currentCounter = drawerTabCounters.get(activeWorktreeId) ?? 0;
+        const currentCounter = drawerTabCounters.get(activeEntityId) ?? 0;
         const newCounter = currentCounter + 1;
         const newTab: DrawerTab = {
-          id: `${activeWorktreeId}-drawer-${newCounter}`,
+          id: `${activeEntityId}-drawer-${newCounter}`,
           label: `Terminal ${newCounter}`,
           type: 'terminal',
         };
         setDrawerTabs((prev) => {
           const next = new Map(prev);
-          next.set(activeWorktreeId, [newTab]);
+          next.set(activeEntityId, [newTab]);
           return next;
         });
         setDrawerActiveTabIds((prev) => {
           const next = new Map(prev);
-          next.set(activeWorktreeId, newTab.id);
+          next.set(activeEntityId, newTab.id);
           return next;
         });
         setDrawerTabCounters((prev) => {
           const next = new Map(prev);
-          next.set(activeWorktreeId, newCounter);
+          next.set(activeEntityId, newCounter);
           return next;
         });
       }
@@ -653,10 +656,10 @@ function App() {
 
     setFocusStates((prev) => {
       const next = new Map(prev);
-      next.set(activeWorktreeId, newFocus);
+      next.set(activeEntityId, newFocus);
       return next;
     });
-  }, [activeWorktreeId, focusStates, isDrawerOpen, drawerTabs, drawerTabCounters, dispatchPanelResizeComplete]);
+  }, [activeEntityId, focusStates, isDrawerOpen, drawerTabs, drawerTabCounters, dispatchPanelResizeComplete]);
 
   // Task handlers
   const handleSelectTask = useCallback((taskName: string) => {
@@ -975,11 +978,16 @@ function App() {
   }, [pendingStashProject, createWorktree]);
 
   const handleSelectWorktree = useCallback((worktree: Worktree) => {
-    // Mark the project as active
+    // Mark the project as active and auto-open its project terminal
     const project = projects.find((p) => p.worktrees.some((w) => w.id === worktree.id));
     if (project) {
       setSessionTouchedProjects((prev) => new Set([...prev, project.id]));
       setActiveProjectId(project.id);
+      // Auto-open project terminal so cmd+0 can switch to it
+      setOpenProjectIds((prev) => {
+        if (prev.has(project.id)) return prev;
+        return new Set([...prev, project.id]);
+      });
     }
     setOpenWorktreeIds((prev) => {
       if (prev.has(worktree.id)) return prev;
@@ -1258,6 +1266,13 @@ function App() {
         }
       }
 
+      // Cmd+0: Switch from worktree to project view (hardcoded, not configurable)
+      if ((e.metaKey || e.ctrlKey) && e.key === '0' && activeWorktreeId && activeProjectId) {
+        e.preventDefault();
+        setActiveWorktreeId(null);
+        return;
+      }
+
       // Switch focus between main and drawer (works even without active worktree selection)
       if (matchesShortcut(e, mappings.switchFocus)) {
         e.preventDefault();
@@ -1265,53 +1280,71 @@ function App() {
         return;
       }
 
-      if (!activeWorktreeId) return;
-
-      if (matchesShortcut(e, mappings.toggleDrawer)) {
-        e.preventDefault();
-        handleToggleDrawer();
-      }
-
-      // Cmd+T to add new terminal tab (when drawer is open)
-      if ((e.metaKey || e.ctrlKey) && e.key === 't' && isDrawerOpen) {
-        e.preventDefault();
-        handleAddDrawerTab();
-      }
-
-      // Cmd+W to close active terminal tab (when drawer is open)
-      if ((e.metaKey || e.ctrlKey) && e.key === 'w' && isDrawerOpen) {
-        e.preventDefault();
-        if (activeDrawerTabId) {
-          handleCloseDrawerTab(activeDrawerTabId);
+      // Drawer/panel shortcuts work for both project and worktree views
+      if (activeEntityId) {
+        if (matchesShortcut(e, mappings.toggleDrawer)) {
+          e.preventDefault();
+          handleToggleDrawer();
         }
-      }
 
-      if (matchesShortcut(e, mappings.toggleRightPanel)) {
-        e.preventDefault();
-        handleToggleRightPanel();
+        // Cmd+T to add new terminal tab (when drawer is open)
+        if ((e.metaKey || e.ctrlKey) && e.key === 't' && isDrawerOpen) {
+          e.preventDefault();
+          handleAddDrawerTab();
+        }
+
+        // Cmd+W to close active terminal tab (when drawer is open)
+        if ((e.metaKey || e.ctrlKey) && e.key === 'w' && isDrawerOpen) {
+          e.preventDefault();
+          if (activeDrawerTabId) {
+            handleCloseDrawerTab(activeDrawerTabId);
+          }
+        }
+
+        if (matchesShortcut(e, mappings.toggleRightPanel)) {
+          e.preventDefault();
+          handleToggleRightPanel();
+        }
       }
 
       // Worktree navigation - cycle through active worktrees in sidebar order
-      if (openWorktreesInOrder.length > 1 && activeWorktreeId) {
-        const currentIndex = openWorktreesInOrder.indexOf(activeWorktreeId);
-        if (currentIndex !== -1) {
+      // Works from both worktree view (cycles) and project view (selects first/last)
+      if (openWorktreesInOrder.length > 0) {
+        if (activeWorktreeId) {
+          // Currently viewing a worktree - cycle through them
+          const currentIndex = openWorktreesInOrder.indexOf(activeWorktreeId);
+          if (currentIndex !== -1) {
+            if (matchesShortcut(e, mappings.worktreePrev)) {
+              e.preventDefault();
+              const prevIndex = currentIndex === 0 ? openWorktreesInOrder.length - 1 : currentIndex - 1;
+              setActiveWorktreeId(openWorktreesInOrder[prevIndex]);
+            }
+            if (matchesShortcut(e, mappings.worktreeNext)) {
+              e.preventDefault();
+              const nextIndex = currentIndex === openWorktreesInOrder.length - 1 ? 0 : currentIndex + 1;
+              setActiveWorktreeId(openWorktreesInOrder[nextIndex]);
+            }
+          }
+        } else {
+          // Currently viewing a project - select first/last worktree
           if (matchesShortcut(e, mappings.worktreePrev)) {
             e.preventDefault();
-            const prevIndex = currentIndex === 0 ? openWorktreesInOrder.length - 1 : currentIndex - 1;
-            setActiveWorktreeId(openWorktreesInOrder[prevIndex]);
+            setActiveWorktreeId(openWorktreesInOrder[openWorktreesInOrder.length - 1]);
           }
           if (matchesShortcut(e, mappings.worktreeNext)) {
             e.preventDefault();
-            const nextIndex = currentIndex === openWorktreesInOrder.length - 1 ? 0 : currentIndex + 1;
-            setActiveWorktreeId(openWorktreesInOrder[nextIndex]);
+            setActiveWorktreeId(openWorktreesInOrder[0]);
           }
         }
       }
 
-      // Run/stop task toggle
-      if (matchesShortcut(e, mappings.runTask)) {
-        e.preventDefault();
-        handleToggleTask();
+      // Worktree-specific shortcuts
+      if (activeWorktreeId) {
+        // Run/stop task toggle
+        if (matchesShortcut(e, mappings.runTask)) {
+          e.preventDefault();
+          handleToggleTask();
+        }
       }
 
       // New workspace (requires an active project)
@@ -1342,7 +1375,7 @@ function App() {
       window.removeEventListener('keyup', handleKeyUp);
       window.removeEventListener('blur', handleBlur);
     };
-  }, [activeWorktreeId, activeProjectId, isDrawerOpen, activeDrawerTabId, config, openWorktreesInOrder, handleToggleDrawer, handleAddDrawerTab, handleCloseDrawerTab, handleToggleRightPanel, handleToggleTask, handleSwitchFocus, handleAddWorktree]);
+  }, [activeWorktreeId, activeProjectId, activeEntityId, isDrawerOpen, activeDrawerTabId, config, openWorktreesInOrder, handleToggleDrawer, handleAddDrawerTab, handleCloseDrawerTab, handleToggleRightPanel, handleToggleTask, handleSwitchFocus, handleAddWorktree]);
 
   const pendingWorktree = pendingDeleteId
     ? projects.flatMap((p) => p.worktrees).find((w) => w.id === pendingDeleteId)
@@ -1455,54 +1488,30 @@ function App() {
 
         <PanelResizeHandle className="w-px bg-zinc-700 hover:bg-zinc-500 transition-colors focus:outline-none !cursor-col-resize" />
 
-        {/* Main Pane with Drawer - vertical layout (flex to fill remaining space) */}
+        {/* Main Pane with Drawer - vertical layout */}
         <Panel minSize="300px">
-          {/* Both panes are always mounted to preserve terminal state, visibility toggled */}
-          <div className="h-full relative">
-            {/* ProjectPane - visible when project selected without worktree */}
-            {openProjectIds.size > 0 && (
-              <div className={`absolute inset-0 ${
-                activeProjectId && !activeWorktreeId
-                  ? 'visible z-10'
-                  : 'invisible z-0 pointer-events-none'
-              }`}>
-                <ProjectPane
-                  openProjectIds={openProjectIds}
-                  activeProjectId={activeProjectId}
-                  isVisible={!activeWorktreeId}
-                  terminalConfig={config.main}
-                  mappings={config.mappings}
-                  onFocus={() => {/* no-op for now */}}
-                />
-              </div>
-            )}
+          <PanelGroup
+            orientation="vertical"
+            className="h-full"
+          >
+            <Panel minSize="200px">
+              <MainPane
+                openWorktreeIds={openWorktreeIds}
+                activeWorktreeId={activeWorktreeId}
+                openProjectIds={openProjectIds}
+                activeProjectId={activeProjectId}
+                terminalConfig={config.main}
+                mappings={config.mappings}
+                shouldAutoFocus={activeFocusState === 'main'}
+                onFocus={handleMainPaneFocused}
+                onWorktreeNotification={handleWorktreeNotification}
+                onWorktreeThinkingChange={handleWorktreeThinkingChange}
+              />
+            </Panel>
 
-            {/* MainPane with Drawer - visible when worktree selected */}
-            <div className={`absolute inset-0 ${
-              activeWorktreeId
-                ? 'visible z-10'
-                : 'invisible z-0 pointer-events-none'
-            }`}>
-              <PanelGroup
-                orientation="vertical"
-                className="h-full"
-              >
-                <Panel minSize="200px">
-                  <MainPane
-                    openWorktreeIds={openWorktreeIds}
-                    activeWorktreeId={activeWorktreeId}
-                    terminalConfig={config.main}
-                    mappings={config.mappings}
-                    shouldAutoFocus={activeFocusState === 'main'}
-                    onFocus={handleMainPaneFocused}
-                    onWorktreeNotification={handleWorktreeNotification}
-                    onWorktreeThinkingChange={handleWorktreeThinkingChange}
-                  />
-                </Panel>
-
-                {/* Drawer Panel - collapsible */}
-                <PanelResizeHandle
-                  className={`transition-colors focus:outline-none !cursor-row-resize ${
+            {/* Drawer Panel - collapsible */}
+            <PanelResizeHandle
+              className={`transition-colors focus:outline-none !cursor-row-resize ${
                 isDrawerOpen
                   ? 'h-px bg-zinc-700 hover:bg-zinc-500'
                   : 'h-0 pointer-events-none'
@@ -1520,7 +1529,7 @@ function App() {
               <div className="h-full overflow-hidden">
                 <Drawer
                   isOpen={isDrawerOpen}
-                  worktreeId={activeWorktreeId}
+                  worktreeId={activeEntityId}
                   tabs={activeDrawerTabs}
                   activeTabId={activeDrawerTabId}
                   taskStatuses={activeTaskStatuses}
@@ -1528,13 +1537,13 @@ function App() {
                   onCloseTab={handleCloseDrawerTab}
                   onAddTab={handleAddDrawerTab}
                 >
-                  {/* Render ALL terminals for ALL worktrees to keep them alive */}
-                  {Array.from(drawerTabs.entries()).flatMap(([worktreeId, tabs]) =>
+                  {/* Render ALL terminals for ALL entities to keep them alive */}
+                  {Array.from(drawerTabs.entries()).flatMap(([entityId, tabs]) =>
                     tabs.map((tab) => (
                       <div
                         key={tab.id}
                         className={`absolute inset-0 ${
-                          worktreeId === activeWorktreeId &&
+                          entityId === activeEntityId &&
                           isDrawerOpen &&
                           tab.id === activeDrawerTabId
                             ? 'visible z-10'
@@ -1544,44 +1553,44 @@ function App() {
                         {tab.type === 'task' && tab.taskName ? (
                           <TaskTerminal
                             id={tab.id}
-                            worktreeId={worktreeId}
+                            worktreeId={entityId}
                             taskName={tab.taskName}
                             isActive={
-                              worktreeId === activeWorktreeId &&
+                              entityId === activeEntityId &&
                               isDrawerOpen &&
                               tab.id === activeDrawerTabId
                             }
                             shouldAutoFocus={
-                              worktreeId === activeWorktreeId &&
+                              entityId === activeEntityId &&
                               isDrawerOpen &&
                               tab.id === activeDrawerTabId &&
                               activeFocusState === 'drawer'
                             }
                             terminalConfig={config.terminal}
                             mappings={config.mappings}
-                            onPtyIdReady={(ptyId) => handleTaskPtyIdReady(worktreeId, tab.taskName!, ptyId)}
-                            onTaskExit={(exitCode) => handleTaskExit(worktreeId, tab.taskName!, exitCode)}
-                            onFocus={() => handleDrawerFocused(worktreeId)}
+                            onPtyIdReady={(ptyId) => handleTaskPtyIdReady(entityId, tab.taskName!, ptyId)}
+                            onTaskExit={(exitCode) => handleTaskExit(entityId, tab.taskName!, exitCode)}
+                            onFocus={() => handleDrawerFocused(entityId)}
                           />
                         ) : (
                           <DrawerTerminal
                             id={tab.id}
-                            worktreeId={worktreeId}
+                            worktreeId={entityId}
                             isActive={
-                              worktreeId === activeWorktreeId &&
+                              entityId === activeEntityId &&
                               isDrawerOpen &&
                               tab.id === activeDrawerTabId
                             }
                             shouldAutoFocus={
-                              worktreeId === activeWorktreeId &&
+                              entityId === activeEntityId &&
                               isDrawerOpen &&
                               tab.id === activeDrawerTabId &&
                               activeFocusState === 'drawer'
                             }
                             terminalConfig={config.terminal}
                             mappings={config.mappings}
-                            onClose={() => handleCloseDrawerTab(tab.id, worktreeId)}
-                            onFocus={() => handleDrawerFocused(worktreeId)}
+                            onClose={() => handleCloseDrawerTab(tab.id, entityId)}
+                            onFocus={() => handleDrawerFocused(entityId)}
                           />
                         )}
                       </div>
@@ -1591,8 +1600,6 @@ function App() {
               </div>
             </Panel>
           </PanelGroup>
-            </div>
-          </div>
         </Panel>
 
         {/* Right Panel - collapsible */}
