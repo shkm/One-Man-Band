@@ -104,4 +104,5 @@ export interface RunningTask {
   kind: TaskKind;
   status: 'running' | 'stopping' | 'stopped';
   worktreeId: string;
+  exitCode?: number;
 }
