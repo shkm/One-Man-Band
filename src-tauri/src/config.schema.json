@@ -173,6 +173,21 @@
           "$ref": "#/$defs/shortcut",
           "description": "Shortcut to switch between current and previous view (worktree or project)",
           "default": { "mac": "cmd+'", "other": "ctrl+'" }
+        },
+        "zoomIn": {
+          "$ref": "#/$defs/shortcut",
+          "description": "Shortcut to increase terminal font size in focused pane",
+          "default": { "mac": "cmd+=", "other": "ctrl+=" }
+        },
+        "zoomOut": {
+          "$ref": "#/$defs/shortcut",
+          "description": "Shortcut to decrease terminal font size in focused pane",
+          "default": { "mac": "cmd+-", "other": "ctrl+-" }
+        },
+        "zoomReset": {
+          "$ref": "#/$defs/shortcut",
+          "description": "Shortcut to reset terminal font size in focused pane to base size",
+          "default": { "mac": "cmd+shift+0", "other": "ctrl+shift+0" }
         }
       },
       "additionalProperties": false

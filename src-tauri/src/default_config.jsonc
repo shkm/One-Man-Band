@@ -62,6 +62,9 @@
     "switchFocus": "ctrl+\\",
     "taskSwitcher": { "mac": "cmd+;", "other": "ctrl+;" },
     "expandDrawer": "shift+Escape",
-    "previousView": { "mac": "cmd+'", "other": "ctrl+'" }
+    "previousView": { "mac": "cmd+'", "other": "ctrl+'" },
+    "zoomIn": { "mac": "cmd+=", "other": "ctrl+=" },
+    "zoomOut": { "mac": "cmd+-", "other": "ctrl+-" },
+    "zoomReset": { "mac": "cmd+shift+0", "other": "ctrl+shift+0" }
   }
 }

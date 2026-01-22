@@ -73,6 +73,9 @@ export interface MappingsConfig {
   taskSwitcher: Shortcut;
   expandDrawer: Shortcut;
   previousView: Shortcut;
+  zoomIn: Shortcut;
+  zoomOut: Shortcut;
+  zoomReset: Shortcut;
 }
 
 export interface Config {
@@ -130,6 +133,9 @@ const defaultConfig: Config = {
     taskSwitcher: '',
     expandDrawer: '',
     previousView: '',
+    zoomIn: '',
+    zoomOut: '',
+    zoomReset: '',
   },
   tasks: [],
 };

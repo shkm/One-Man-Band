@@ -27,6 +27,11 @@ const SHOW_ACTIVE_ONLY_KEY = 'onemanband:showActiveOnly';
 const ACTIVE_PROJECTS_KEY = 'onemanband:activeProjects';
 const SELECTED_TASKS_KEY = 'onemanband:selectedTasks';
 
+// Zoom constants
+const ZOOM_STEP = 2; // pixels per zoom level
+const MIN_ZOOM = -5; // minimum zoom level
+const MAX_ZOOM = 10; // maximum zoom level
+
 // Which pane has focus per worktree
 type FocusedPane = 'main' | 'drawer';
 
@@ -72,6 +77,10 @@ function App() {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isDrawerExpanded, setIsDrawerExpanded] = useState(false);
   const [isRightPanelOpen, setIsRightPanelOpen] = useState(false);
+
+  // Zoom levels per pane type (not persisted across sessions)
+  const [mainZoom, setMainZoom] = useState(0);
+  const [drawerZoom, setDrawerZoom] = useState(0);
 
   // Per-worktree drawer tab state
   const [drawerTabs, setDrawerTabs] = useState<Map<string, DrawerTab[]>>(new Map());
@@ -903,6 +912,42 @@ function App() {
     // If previous view is no longer valid, do nothing
   }, [previousView, activeWorktreeId, activeProjectId, openWorktreeIds, openProjectIds]);
 
+  // Zoom handlers
+  const handleZoomIn = useCallback(() => {
+    if (activeFocusState === 'drawer') {
+      setDrawerZoom(z => Math.min(z + 1, MAX_ZOOM));
+    } else {
+      setMainZoom(z => Math.min(z + 1, MAX_ZOOM));
+    }
+  }, [activeFocusState]);
+
+  const handleZoomOut = useCallback(() => {
+    if (activeFocusState === 'drawer') {
+      setDrawerZoom(z => Math.max(z - 1, MIN_ZOOM));
+    } else {
+      setMainZoom(z => Math.max(z - 1, MIN_ZOOM));
+    }
+  }, [activeFocusState]);
+
+  const handleZoomReset = useCallback(() => {
+    if (activeFocusState === 'drawer') {
+      setDrawerZoom(0);
+    } else {
+      setMainZoom(0);
+    }
+  }, [activeFocusState]);
+
+  // Adjusted terminal configs with zoom applied
+  const mainTerminalConfig = useMemo(() => ({
+    ...config.main,
+    fontSize: config.main.fontSize + (mainZoom * ZOOM_STEP),
+  }), [config.main, mainZoom]);
+
+  const drawerTerminalConfig = useMemo(() => ({
+    ...config.terminal,
+    fontSize: config.terminal.fontSize + (drawerZoom * ZOOM_STEP),
+  }), [config.terminal, drawerZoom]);
+
   // Task handlers
   const handleSelectTask = useCallback((taskName: string) => {
     if (!activeProjectPath) return;
@@ -1578,6 +1623,25 @@ function App() {
         }
       }
 
+      // Zoom shortcuts (must come before Cmd+0 check since zoomReset uses Cmd+Shift+0)
+      if (matchesShortcut(e, mappings.zoomIn)) {
+        e.preventDefault();
+        handleZoomIn();
+        return;
+      }
+
+      if (matchesShortcut(e, mappings.zoomOut)) {
+        e.preventDefault();
+        handleZoomOut();
+        return;
+      }
+
+      if (matchesShortcut(e, mappings.zoomReset)) {
+        e.preventDefault();
+        handleZoomReset();
+        return;
+      }
+
       // Cmd+0: Switch from worktree to project view (hardcoded, not configurable)
       if ((e.metaKey || e.ctrlKey) && e.key === '0' && activeWorktreeId && activeProjectId) {
         e.preventDefault();
@@ -1728,7 +1792,7 @@ function App() {
       window.removeEventListener('keyup', handleKeyUp);
       window.removeEventListener('blur', handleBlur);
     };
-  }, [activeWorktreeId, activeProjectId, activeEntityId, isDrawerOpen, activeDrawerTabId, config, openWorktreesInOrder, handleToggleDrawer, handleToggleDrawerExpand, handleAddDrawerTab, handleCloseDrawerTab, handleToggleRightPanel, handleToggleTask, handleSwitchFocus, handleSwitchToPreviousView, handleAddWorktree, handleToggleTaskSwitcher]);
+  }, [activeWorktreeId, activeProjectId, activeEntityId, isDrawerOpen, activeDrawerTabId, config, openWorktreesInOrder, handleToggleDrawer, handleToggleDrawerExpand, handleAddDrawerTab, handleCloseDrawerTab, handleToggleRightPanel, handleToggleTask, handleSwitchFocus, handleSwitchToPreviousView, handleAddWorktree, handleToggleTaskSwitcher, handleZoomIn, handleZoomOut, handleZoomReset]);
 
   const pendingWorktree = pendingDeleteId
     ? projects.flatMap((p) => p.worktrees).find((w) => w.id === pendingDeleteId)
@@ -1883,7 +1947,7 @@ function App() {
                 activeWorktreeId={activeWorktreeId}
                 openProjectIds={openProjectIds}
                 activeProjectId={activeProjectId}
-                terminalConfig={config.main}
+                terminalConfig={mainTerminalConfig}
                 mappings={config.mappings}
                 activityTimeout={config.indicators.activityTimeout}
                 shouldAutoFocus={activeFocusState === 'main'}
@@ -1955,7 +2019,7 @@ function App() {
                               tab.id === activeDrawerTabId &&
                               activeFocusState === 'drawer'
                             }
-                            terminalConfig={config.terminal}
+                            terminalConfig={drawerTerminalConfig}
                             mappings={config.mappings}
                             onPtyIdReady={(ptyId) => handleTaskPtyIdReady(entityId, tab.taskName!, ptyId)}
                             onTaskExit={(exitCode) => handleTaskExit(entityId, tab.taskName!, exitCode)}
@@ -1976,7 +2040,7 @@ function App() {
                               tab.id === activeDrawerTabId &&
                               activeFocusState === 'drawer'
                             }
-                            terminalConfig={config.terminal}
+                            terminalConfig={drawerTerminalConfig}
                             mappings={config.mappings}
                             onClose={() => handleCloseDrawerTab(tab.id, entityId)}
                             onFocus={() => handleDrawerFocused(entityId)}

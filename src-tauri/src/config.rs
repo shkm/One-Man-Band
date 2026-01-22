@@ -289,6 +289,12 @@ pub struct MappingsConfig {
     pub expand_drawer: Shortcut,
     #[serde(rename = "previousView")]
     pub previous_view: Shortcut,
+    #[serde(rename = "zoomIn")]
+    pub zoom_in: Shortcut,
+    #[serde(rename = "zoomOut")]
+    pub zoom_out: Shortcut,
+    #[serde(rename = "zoomReset")]
+    pub zoom_reset: Shortcut,
 }
 
 /// Helper struct to extract just mappings from DEFAULT_CONFIG without recursion
@@ -342,6 +348,12 @@ struct MappingsConfigRaw {
     expand_drawer: Shortcut,
     #[serde(rename = "previousView")]
     previous_view: Shortcut,
+    #[serde(rename = "zoomIn")]
+    zoom_in: Shortcut,
+    #[serde(rename = "zoomOut")]
+    zoom_out: Shortcut,
+    #[serde(rename = "zoomReset")]
+    zoom_reset: Shortcut,
 }
 
 impl Default for MappingsConfig {
@@ -373,6 +385,9 @@ impl Default for MappingsConfig {
                     task_switcher: m.task_switcher,
                     expand_drawer: m.expand_drawer,
                     previous_view: m.previous_view,
+                    zoom_in: m.zoom_in,
+                    zoom_out: m.zoom_out,
+                    zoom_reset: m.zoom_reset,
                 };
             }
         }
