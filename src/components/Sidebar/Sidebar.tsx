@@ -327,7 +327,7 @@ export function Sidebar({
                           {/* Left indicator column - fixed width to align text with folder icon */}
                           <div className="w-7 flex-shrink-0 flex items-center justify-center">
                             {isModifierKeyHeld && shortcutNumber !== null ? (
-                              <span className="text-xs text-zinc-400 font-medium">{shortcutNumber}</span>
+                              <span className={`text-xs font-medium ${runningTaskCounts.has(worktree.id) ? 'text-emerald-400' : 'text-zinc-400'}`}>{shortcutNumber}</span>
                             ) : runningTaskCounts.has(worktree.id) ? (
                               <span title={`${runningTaskCounts.get(worktree.id)} task${runningTaskCounts.get(worktree.id)! > 1 ? 's' : ''} running`} className="relative">
                                 <Circle size={6} className="fill-emerald-400 text-emerald-400" />
