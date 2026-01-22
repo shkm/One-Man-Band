@@ -1,15 +1,18 @@
-import { FolderGit2, Plus, ChevronRight, ChevronDown, MoreHorizontal, Trash2, Loader2, Terminal, GitMerge, X, PanelRight, BellDot, Settings, Circle } from 'lucide-react';
+import { FolderGit2, Plus, ChevronRight, ChevronDown, MoreHorizontal, Trash2, Loader2, Terminal, GitMerge, X, PanelRight, BellDot, Settings, Circle, Folder } from 'lucide-react';
 import { Project, Worktree, RunningTask } from '../../types';
 import { TaskConfig } from '../../hooks/useConfig';
 import { useState, useMemo } from 'react';
 import { DragRegion } from '../DragRegion';
 import { ContextMenu } from '../ContextMenu';
 import { TaskSelector } from './TaskSelector';
+import { EditableWorktreeName } from './EditableWorktreeName';
+import { invoke } from '@tauri-apps/api/core';
 
 interface SidebarProps {
   projects: Project[];
   activeProjectId: string | null;
   activeWorktreeId: string | null;
+  activeWorktree: Worktree | null;
   openProjectIds: Set<string>;
   openWorktreeIds: Set<string>;
   openWorktreesInOrder: string[];
@@ -29,6 +32,7 @@ interface SidebarProps {
   selectedTask: string | null;
   runningTask: RunningTask | null;
   allRunningTasks: Array<{ taskName: string; status: string }>;
+  terminalFontFamily: string;
   onToggleProject: (projectId: string) => void;
   onSelectProject: (project: Project) => void;
   onSelectWorktree: (worktree: Worktree) => void;
@@ -47,12 +51,14 @@ interface SidebarProps {
   onStartTask: () => void;
   onStopTask: () => void;
   onForceKillTask: () => void;
+  onRenameWorktree: (worktreeId: string, newName: string) => Promise<void>;
 }
 
 export function Sidebar({
   projects,
   activeProjectId,
   activeWorktreeId,
+  activeWorktree,
   openProjectIds,
   openWorktreeIds,
   openWorktreesInOrder,
@@ -72,6 +78,7 @@ export function Sidebar({
   selectedTask,
   runningTask,
   allRunningTasks,
+  terminalFontFamily,
   onToggleProject,
   onSelectProject,
   onSelectWorktree,
@@ -90,6 +97,7 @@ export function Sidebar({
   onStartTask,
   onStopTask,
   onForceKillTask,
+  onRenameWorktree,
 }: SidebarProps) {
   const [contextMenu, setContextMenu] = useState<{
     project: Project;
@@ -331,7 +339,10 @@ export function Sidebar({
                               </span>
                             ) : null}
                           </div>
-                          <span className="truncate">{worktree.name}</span>
+                          <EditableWorktreeName
+                            name={worktree.name}
+                            onRename={(newName) => onRenameWorktree(worktree.id, newName)}
+                          />
                           {isLoading ? (
                             <span className="absolute right-1" title="Starting...">
                               <Loader2 size={12} className="animate-spin text-blue-400" />
@@ -435,6 +446,29 @@ export function Sidebar({
           onClose={() => setOptionsMenu(null)}
         />
       )}
+
+      {/* Worktree folder path display */}
+      {activeWorktree && (() => {
+        const folderName = activeWorktree.path.split('/').pop() ?? '';
+        return (
+          <div className="h-8 px-2 border-t border-zinc-800 text-xs text-zinc-500 flex items-center gap-1.5">
+            <button
+              onClick={() => invoke('open_folder', { path: activeWorktree.path })}
+              className="p-1 -ml-1 rounded hover:bg-zinc-800 hover:text-zinc-300 flex-shrink-0 flex items-center justify-center"
+              title="Open folder"
+            >
+              <Folder size={14} />
+            </button>
+            <span
+              className="truncate"
+              style={{ fontFamily: terminalFontFamily }}
+              title={activeWorktree.path}
+            >
+              {folderName}
+            </span>
+          </div>
+        );
+      })()}
 
       {/* Task selector - above status bar */}
       {(activeWorktreeId || activeProjectId) && tasks.length > 0 && (

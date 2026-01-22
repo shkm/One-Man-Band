@@ -748,6 +748,93 @@ fn cleanup_worktree(
     info!("[cleanup_worktree] spawned background thread");
 }
 
+/// Open a folder in the system file manager
+#[tauri::command]
+fn open_folder(path: &str) -> Result<()> {
+    use std::process::Command;
+
+    #[cfg(target_os = "macos")]
+    {
+        Command::new("open")
+            .arg(path)
+            .spawn()
+            .map_err(|e| e.to_string())?;
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        Command::new("explorer")
+            .arg(path)
+            .spawn()
+            .map_err(|e| e.to_string())?;
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        Command::new("xdg-open")
+            .arg(path)
+            .spawn()
+            .map_err(|e| e.to_string())?;
+    }
+
+    Ok(())
+}
+
+/// Rename a worktree's branch (the worktree's display name comes from its branch)
+#[tauri::command]
+fn rename_worktree(
+    state: State<'_, Arc<AppState>>,
+    worktree_id: &str,
+    new_name: &str,
+) -> Result<()> {
+    // Validate the new name
+    if let Some(error) = git::validate_branch_name(new_name) {
+        return Err(error);
+    }
+
+    let mut persisted = state.persisted.write();
+
+    // Find the worktree and its project
+    let mut found = None;
+    for project in &mut persisted.projects {
+        if let Some(worktree) = project.worktrees.iter_mut().find(|w| w.id == worktree_id) {
+            found = Some((project.path.clone(), worktree.branch.clone()));
+            break;
+        }
+    }
+
+    let (project_path, old_name) = found.ok_or_else(|| format!("Worktree not found: {}", worktree_id))?;
+
+    // Check if new name is same as old name
+    if old_name == new_name {
+        return Ok(());
+    }
+
+    // Check if the new branch name already exists
+    let project_path = std::path::Path::new(&project_path);
+    if git::branch_exists(project_path, new_name).map_err(map_err)? {
+        return Err(format!("Branch '{}' already exists", new_name));
+    }
+
+    // Rename the git branch
+    git::rename_branch(project_path, &old_name, new_name).map_err(map_err)?;
+
+    // Update the worktree state
+    for project in &mut persisted.projects {
+        if let Some(worktree) = project.worktrees.iter_mut().find(|w| w.id == worktree_id) {
+            worktree.name = new_name.to_string();
+            worktree.branch = new_name.to_string();
+            break;
+        }
+    }
+
+    drop(persisted);
+    state.save().map_err(map_err)?;
+
+    info!("[rename_worktree] Renamed worktree {} from '{}' to '{}'", worktree_id, old_name, new_name);
+    Ok(())
+}
+
 // Shutdown command - gracefully terminates all PTY processes
 // Spawns a background thread and returns immediately so events can stream to frontend
 #[tauri::command]
@@ -841,6 +928,8 @@ pub fn run() {
             list_worktrees,
             delete_worktree,
             remove_stale_worktree,
+            rename_worktree,
+            open_folder,
             spawn_main,
             spawn_terminal,
             spawn_project_shell,

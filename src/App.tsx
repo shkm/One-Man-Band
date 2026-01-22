@@ -29,7 +29,7 @@ const SELECTED_TASKS_KEY = 'onemanband:selectedTasks';
 type FocusedPane = 'main' | 'drawer';
 
 function App() {
-  const { projects, addProject, removeProject, createWorktree, deleteWorktree, refresh: refreshProjects } = useWorktrees();
+  const { projects, addProject, removeProject, createWorktree, deleteWorktree, renameWorktree, refresh: refreshProjects } = useWorktrees();
 
   // Get project path first for config loading (derived below after activeWorktreeId is defined)
   const [activeWorktreeId, setActiveWorktreeId] = useState<string | null>(null);
@@ -1668,6 +1668,7 @@ function App() {
               projects={projects}
               activeProjectId={activeProjectId}
               activeWorktreeId={activeWorktreeId}
+              activeWorktree={activeWorktree}
               openProjectIds={openProjectIds}
               openWorktreeIds={openWorktreeIds}
               openWorktreesInOrder={openWorktreesInOrder}
@@ -1687,6 +1688,7 @@ function App() {
               selectedTask={activeSelectedTask}
               runningTask={activeRunningTask && activeEntityId ? { ...activeRunningTask, worktreeId: activeEntityId, kind: config.tasks.find(t => t.name === activeRunningTask.taskName)?.kind ?? 'command' } : null}
               allRunningTasks={activeEntityId ? runningTasks.get(activeEntityId) ?? [] : []}
+              terminalFontFamily={config.main.fontFamily}
               onToggleProject={toggleProject}
               onSelectProject={handleSelectProject}
               onSelectWorktree={handleSelectWorktree}
@@ -1705,6 +1707,7 @@ function App() {
               onStartTask={handleStartTask}
               onStopTask={handleStopTask}
               onForceKillTask={handleForceKillTask}
+              onRenameWorktree={renameWorktree}
             />
           </div>
         </Panel>

@@ -621,6 +621,89 @@ pub fn delete_remote_branch(repo_path: &Path, branch_name: &str) -> Result<(), G
     Ok(())
 }
 
+/// Validate a git branch name according to git's rules
+/// Returns None if valid, Some(error_message) if invalid
+pub fn validate_branch_name(name: &str) -> Option<String> {
+    // Empty or too long
+    if name.is_empty() {
+        return Some("Branch name cannot be empty".to_string());
+    }
+    if name.len() > 250 {
+        return Some("Branch name is too long (max 250 characters)".to_string());
+    }
+
+    // Starts with '.' or '-'
+    if name.starts_with('.') {
+        return Some("Branch name cannot start with '.'".to_string());
+    }
+    if name.starts_with('-') {
+        return Some("Branch name cannot start with '-'".to_string());
+    }
+
+    // Ends with '/' or '.lock'
+    if name.ends_with('/') {
+        return Some("Branch name cannot end with '/'".to_string());
+    }
+    if name.ends_with(".lock") {
+        return Some("Branch name cannot end with '.lock'".to_string());
+    }
+
+    // Contains '..'
+    if name.contains("..") {
+        return Some("Branch name cannot contain '..'".to_string());
+    }
+
+    // Equals '@'
+    if name == "@" {
+        return Some("Branch name cannot be '@'".to_string());
+    }
+
+    // Invalid characters: space, ~, ^, :, ?, *, [, \, control chars
+    let invalid_chars = [' ', '~', '^', ':', '?', '*', '[', '\\'];
+    for c in invalid_chars {
+        if name.contains(c) {
+            return Some(format!("Branch name cannot contain '{}'", c));
+        }
+    }
+
+    // Control characters (0x00-0x1F, 0x7F)
+    for c in name.chars() {
+        if c.is_control() {
+            return Some("Branch name cannot contain control characters".to_string());
+        }
+    }
+
+    None
+}
+
+/// Rename a git branch using `git branch -m`
+pub fn rename_branch(repo_path: &Path, old_name: &str, new_name: &str) -> Result<(), GitError> {
+    use std::process::Command;
+
+    log::info!(
+        "[git::rename_branch] Renaming branch '{}' to '{}' in {:?}",
+        old_name,
+        new_name,
+        repo_path
+    );
+
+    let output = Command::new("git")
+        .args(["branch", "-m", old_name, new_name])
+        .current_dir(repo_path)
+        .output()?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(GitError::Io(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            format!("git branch -m failed: {}", stderr),
+        )));
+    }
+
+    log::info!("[git::rename_branch] Branch renamed successfully");
+    Ok(())
+}
+
 /// Execute the full merge workflow
 pub fn execute_merge_workflow(
     worktree_path: &Path,

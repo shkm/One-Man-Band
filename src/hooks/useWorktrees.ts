@@ -102,6 +102,19 @@ export function useWorktrees() {
     [loadProjects]
   );
 
+  const renameWorktree = useCallback(
+    async (worktreeId: string, newName: string) => {
+      try {
+        await invoke('rename_worktree', { worktreeId, newName });
+        await loadProjects();
+      } catch (err) {
+        console.error('Failed to rename worktree:', err);
+        throw err;
+      }
+    },
+    [loadProjects]
+  );
+
   const removeProject = useCallback(
     async (projectId: string) => {
       try {
@@ -123,6 +136,7 @@ export function useWorktrees() {
     removeProject,
     createWorktree,
     deleteWorktree,
+    renameWorktree,
     refresh: loadProjects,
   };
 }
