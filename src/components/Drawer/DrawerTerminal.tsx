@@ -85,6 +85,7 @@ export function DrawerTerminal({ id, worktreeId, isActive, shouldAutoFocus, term
     let isMounted = true;
 
     const terminal = new Terminal({
+      allowProposedApi: true,
       cursorBlink: true,
       cursorStyle: 'block',
       fontSize: terminalConfig.fontSize,
