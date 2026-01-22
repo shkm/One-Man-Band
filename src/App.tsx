@@ -441,6 +441,13 @@ function App() {
       // Save current size and expand to cover main area
       preExpandDrawerSize.current = lastDrawerSize.current;
       setIsDrawerExpanded(true);
+      // Focus the drawer when expanding
+      setFocusStates((prev) => {
+        if (prev.get(activeEntityId) === 'drawer') return prev;
+        const next = new Map(prev);
+        next.set(activeEntityId, 'drawer');
+        return next;
+      });
       // Use setTimeout to let maxSize update before resizing
       setTimeout(() => {
         drawerPanel.resize("100%");
