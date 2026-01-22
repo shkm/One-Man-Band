@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0](https://github.com/shkm/One-Man-Band/compare/v0.3.0...v0.4.0) (2026-01-22)
+
+
+### Features
+
+* add drag-and-drop reordering for tabs and sidebar items ([b355dd7](https://github.com/shkm/One-Man-Band/commit/b355dd76fe451a6e3631828abc04dff6e9bf6d53))
+* add worktree rename via double-click ([cb8d411](https://github.com/shkm/One-Man-Band/commit/cb8d4117701e58a0c498bc95c87e0fdff5ec8243))
+* display git commit hash in sidebar header ([2d98959](https://github.com/shkm/One-Man-Band/commit/2d98959a8d92fcadc9e7e1deb3357be81e503183))
+* improve progress indicators and add idle state ([815659f](https://github.com/shkm/One-Man-Band/commit/815659f0fcc9a4d5afa31a0750a814bd7282171f))
+* show progress checklist for multi-step operations ([9994675](https://github.com/shkm/One-Man-Band/commit/9994675b701a9f22209535f79d807200b645f395))
+* show running task status via green shortcut number color ([d77f69b](https://github.com/shkm/One-Man-Band/commit/d77f69baf1c690b7d8e9918597c2b2dda5b93000))
+* show task exit status in drawer tabs ([85040b5](https://github.com/shkm/One-Man-Band/commit/85040b541715e65868f8347b314b3fb504371fae))
+
+
+### Bug Fixes
+
+* add background to sidebar status indicators to prevent text overlap ([44f1eec](https://github.com/shkm/One-Man-Band/commit/44f1eec5c6410f3cc19dc89b80fc211ee8e8c1fa))
+* enable allowProposedApi for ligatures addon in drawer terminals ([0417ffb](https://github.com/shkm/One-Man-Band/commit/0417ffbe45bc9dc176e55d66a76bc53b1e873628))
+
+
+### Performance Improvements
+
+* optimize dev build profile for faster compilation ([740a19f](https://github.com/shkm/One-Man-Band/commit/740a19fad6fbe7b44ac6a2a386396e19f745adfa))
+
 ## [0.3.0](https://github.com/shkm/One-Man-Band/compare/v0.2.0...v0.3.0) (2026-01-22)
 
 
