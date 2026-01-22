@@ -205,7 +205,7 @@ export function MergeModal({
   };
 
   const canExecute = feasibility?.canMerge && !executing && !error;
-  const canCleanup = feasibility && !feasibility.canMerge && !feasibility.hasUncommittedChanges && !executing && !error;
+  const canCleanup = feasibility && !feasibility.canMerge && !feasibility.isUpToDate && !feasibility.hasUncommittedChanges && !executing && !error;
   const showCleanupButton = canCleanup && (deleteWorktree || deleteLocalBranch || deleteRemoteBranch);
 
   // Keyboard shortcuts
