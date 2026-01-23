@@ -36,6 +36,7 @@ interface SidebarProps {
   openProjectIds: Set<string>;
   openWorktreeIds: Set<string>;
   openWorktreesInOrder: string[];
+  includeProjectsInNav: boolean;
   isModifierKeyHeld: boolean;
   loadingWorktrees: Set<string>;
   notifiedWorktreeIds: Set<string>;
@@ -87,6 +88,7 @@ export function Sidebar({
   openProjectIds,
   openWorktreeIds,
   openWorktreesInOrder,
+  includeProjectsInNav,
   isModifierKeyHeld,
   loadingWorktrees,
   notifiedWorktreeIds,
@@ -153,6 +155,32 @@ export function Sidebar({
       setTaskUrls([]);
     }
   }, [entityId, runningTask?.taskName, runningTask?.status]);
+
+  // Compute shortcut indices (1-9) for navigation items
+  // When includeProjectsInNav is true, projects are included in the numbering
+  const shortcutIndices = useMemo(() => {
+    const indices = new Map<string, number>();
+    if (includeProjectsInNav) {
+      let index = 0;
+      for (const project of projects) {
+        if (openProjectIds.has(project.id)) {
+          if (index < 9) indices.set(project.id, index + 1);
+          index++;
+        }
+        for (const worktree of project.worktrees) {
+          if (openWorktreeIds.has(worktree.id)) {
+            if (index < 9) indices.set(worktree.id, index + 1);
+            index++;
+          }
+        }
+      }
+    } else {
+      openWorktreesInOrder.forEach((id, i) => {
+        if (i < 9) indices.set(id, i + 1);
+      });
+    }
+    return indices;
+  }, [includeProjectsInNav, projects, openProjectIds, openWorktreeIds, openWorktreesInOrder]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -355,9 +383,11 @@ export function Sidebar({
                         onClick={() => onSelectProject(project)}
                         onContextMenu={(e) => handleProjectContextMenu(e, project)}
                       >
-                        {/* Chevron/shortcut - shows "0" when cmd held, otherwise chevron */}
+                        {/* Chevron/shortcut - shows number when cmd held (if in nav), otherwise chevron */}
                         <div className="w-7 flex-shrink-0 flex items-center justify-center">
-                          {isModifierKeyHeld && activeProjectId === project.id ? (
+                          {isModifierKeyHeld && shortcutIndices.has(project.id) ? (
+                            <span className={`text-xs font-medium ${runningTaskCounts.has(project.id) ? 'text-emerald-400' : 'text-zinc-400'}`}>{shortcutIndices.get(project.id)}</span>
+                          ) : isModifierKeyHeld && activeProjectId === project.id ? (
                             <span className="text-xs text-zinc-400 font-medium">0</span>
                           ) : (
                             <button
@@ -463,9 +493,8 @@ export function Sidebar({
                                 const isNotified = notifiedWorktreeIds.has(worktree.id);
                                 const isOpen = openWorktreeIds.has(worktree.id);
                                 const isSelected = activeWorktreeId === worktree.id;
-                                // Get shortcut number (1-9) for open worktrees
-                                const shortcutIndex = isOpen ? openWorktreesInOrder.indexOf(worktree.id) : -1;
-                                const shortcutNumber = shortcutIndex >= 0 && shortcutIndex < 9 ? shortcutIndex + 1 : null;
+                                // Get shortcut number (1-9) from pre-computed indices
+                                const shortcutNumber = shortcutIndices.get(worktree.id) ?? null;
                                 return (
                                   <SortableWorktree key={worktree.id} worktreeId={worktree.id} projectId={project.id}>
                                     <div

@@ -241,6 +241,7 @@ function App() {
       .map(w => w.id);
   }, [projects, openWorktreeIds]);
 
+
   // Worktrees with running tasks and their counts (for sidebar indicator)
   const runningTaskCounts = useMemo(() => {
     const counts = new Map<string, number>();
@@ -1703,8 +1704,8 @@ function App() {
         setIsModifierKeyHeld(true);
       }
 
-      // Worktree selection by index (1-9)
-      const worktreeShortcuts = [
+      // Selection by index (1-9) - includes projects when navigation.includeProjects is enabled
+      const indexShortcuts = [
         mappings.worktree1,
         mappings.worktree2,
         mappings.worktree3,
@@ -1715,11 +1716,41 @@ function App() {
         mappings.worktree8,
         mappings.worktree9,
       ];
-      for (let i = 0; i < worktreeShortcuts.length; i++) {
-        if (matchesShortcut(e, worktreeShortcuts[i]) && i < openWorktreesInOrder.length) {
-          e.preventDefault();
-          setActiveWorktreeId(openWorktreesInOrder[i]);
-          break;
+      const includeProjectsInIndex = config.navigation?.includeProjects ?? false;
+      if (includeProjectsInIndex) {
+        // Build items list including projects
+        const indexItems: Array<{ type: 'project' | 'worktree'; id: string }> = [];
+        for (const project of projects) {
+          if (openProjectIds.has(project.id)) {
+            indexItems.push({ type: 'project', id: project.id });
+          }
+          for (const worktree of project.worktrees) {
+            if (openWorktreeIds.has(worktree.id)) {
+              indexItems.push({ type: 'worktree', id: worktree.id });
+            }
+          }
+        }
+        for (let i = 0; i < indexShortcuts.length; i++) {
+          if (matchesShortcut(e, indexShortcuts[i]) && i < indexItems.length) {
+            e.preventDefault();
+            const item = indexItems[i];
+            if (item.type === 'worktree') {
+              setActiveWorktreeId(item.id);
+            } else {
+              setActiveWorktreeId(null);
+              setActiveProjectId(item.id);
+            }
+            break;
+          }
+        }
+      } else {
+        // Original worktree-only index selection
+        for (let i = 0; i < indexShortcuts.length; i++) {
+          if (matchesShortcut(e, indexShortcuts[i]) && i < openWorktreesInOrder.length) {
+            e.preventDefault();
+            setActiveWorktreeId(openWorktreesInOrder[i]);
+            break;
+          }
         }
       }
 
@@ -1819,11 +1850,49 @@ function App() {
         }
       }
 
-      // Worktree navigation - cycle through active worktrees in sidebar order
-      // Works from both worktree view (cycles) and project view (selects first/last)
-      if (openWorktreesInOrder.length > 0) {
+      // Navigation - cycle through active worktrees (and optionally projects) in sidebar order
+      const includeProjects = config.navigation?.includeProjects ?? false;
+      if (includeProjects) {
+        // Build navigation items including projects
+        const navItems: Array<{ type: 'project' | 'worktree'; id: string }> = [];
+        for (const project of projects) {
+          if (openProjectIds.has(project.id)) {
+            navItems.push({ type: 'project', id: project.id });
+          }
+          for (const worktree of project.worktrees) {
+            if (openWorktreeIds.has(worktree.id)) {
+              navItems.push({ type: 'worktree', id: worktree.id });
+            }
+          }
+        }
+
+        if (navItems.length > 0) {
+          const currentId = activeWorktreeId ?? activeProjectId;
+          const currentIndex = navItems.findIndex(item => item.id === currentId);
+
+          const selectItem = (item: { type: 'project' | 'worktree'; id: string }) => {
+            if (item.type === 'worktree') {
+              setActiveWorktreeId(item.id);
+            } else {
+              setActiveWorktreeId(null);
+              setActiveProjectId(item.id);
+            }
+          };
+
+          if (matchesShortcut(e, mappings.worktreePrev)) {
+            e.preventDefault();
+            const prevIndex = currentIndex <= 0 ? navItems.length - 1 : currentIndex - 1;
+            selectItem(navItems[prevIndex]);
+          }
+          if (matchesShortcut(e, mappings.worktreeNext)) {
+            e.preventDefault();
+            const nextIndex = currentIndex === -1 || currentIndex === navItems.length - 1 ? 0 : currentIndex + 1;
+            selectItem(navItems[nextIndex]);
+          }
+        }
+      } else if (openWorktreesInOrder.length > 0) {
+        // Original worktree-only navigation
         if (activeWorktreeId) {
-          // Currently viewing a worktree - cycle through them
           const currentIndex = openWorktreesInOrder.indexOf(activeWorktreeId);
           if (currentIndex !== -1) {
             if (matchesShortcut(e, mappings.worktreePrev)) {
@@ -1894,7 +1963,7 @@ function App() {
       window.removeEventListener('keyup', handleKeyUp);
       window.removeEventListener('blur', handleBlur);
     };
-  }, [activeWorktreeId, activeProjectId, activeEntityId, isDrawerOpen, activeDrawerTabId, config, openWorktreesInOrder, handleToggleDrawer, handleToggleDrawerExpand, handleAddDrawerTab, handleCloseDrawerTab, handleToggleRightPanel, handleToggleTask, handleSwitchFocus, handleSwitchToPreviousView, handleAddWorktree, handleToggleTaskSwitcher, handleZoomIn, handleZoomOut, handleZoomReset]);
+  }, [activeWorktreeId, activeProjectId, activeEntityId, isDrawerOpen, activeDrawerTabId, config, projects, openProjectIds, openWorktreeIds, openWorktreesInOrder, handleToggleDrawer, handleToggleDrawerExpand, handleAddDrawerTab, handleCloseDrawerTab, handleToggleRightPanel, handleToggleTask, handleSwitchFocus, handleSwitchToPreviousView, handleAddWorktree, handleToggleTaskSwitcher, handleZoomIn, handleZoomOut, handleZoomReset]);
 
   const pendingWorktree = pendingDeleteId
     ? projects.flatMap((p) => p.worktrees).find((w) => w.id === pendingDeleteId)
@@ -2007,6 +2076,7 @@ function App() {
               openProjectIds={openProjectIds}
               openWorktreeIds={openWorktreeIds}
               openWorktreesInOrder={openWorktreesInOrder}
+              includeProjectsInNav={config.navigation?.includeProjects ?? false}
               isModifierKeyHeld={isModifierKeyHeld && !isModalOpen}
               loadingWorktrees={loadingWorktrees}
               notifiedWorktreeIds={notifiedWorktreeIds}
