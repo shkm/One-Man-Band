@@ -625,18 +625,6 @@ pub fn abort_rebase(repo_path: &Path) -> Result<(), GitError> {
     Ok(())
 }
 
-/// Check if a rebase is in progress at the given path
-pub fn is_rebase_in_progress(repo_path: &Path) -> bool {
-    // Check for .git/rebase-merge (interactive rebase) or .git/rebase-apply (non-interactive)
-    let git_dir = repo_path.join(".git");
-    git_dir.join("rebase-merge").exists() || git_dir.join("rebase-apply").exists()
-}
-
-/// Check if a merge is in progress at the given path
-pub fn is_merge_in_progress(repo_path: &Path) -> bool {
-    repo_path.join(".git").join("MERGE_HEAD").exists()
-}
-
 /// Rebase the current branch onto the target branch
 pub fn rebase_branch_onto_target(
     worktree_path: &Path,
