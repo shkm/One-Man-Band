@@ -21,6 +21,10 @@ export interface MergeConfig {
   deleteRemoteBranch: boolean;
 }
 
+export interface NavigationConfig {
+  includeProjects: boolean;
+}
+
 export type TaskKind = 'command' | 'daemon';
 
 export interface TaskConfig {
@@ -90,6 +94,7 @@ export interface Config {
   main: MainConfig;
   terminal: TerminalConfig;
   merge: MergeConfig;
+  navigation: NavigationConfig;
   mappings: MappingsConfig;
   indicators: IndicatorsConfig;
   tasks: TaskConfig[];
@@ -127,6 +132,9 @@ const defaultConfig: Config = {
     deleteWorktree: true,
     deleteLocalBranch: false,
     deleteRemoteBranch: false,
+  },
+  navigation: {
+    includeProjects: true,
   },
   indicators: {
     activityTimeout: 250,

@@ -25,6 +25,7 @@ pub struct Config {
     pub terminal: TerminalConfig,
     pub worktree: WorktreeConfig,
     pub merge: MergeConfig,
+    pub navigation: NavigationConfig,
     pub mappings: MappingsConfig,
     pub indicators: IndicatorsConfig,
     pub tasks: Vec<TaskConfig>,
@@ -122,6 +123,22 @@ impl Default for MergeConfig {
             delete_worktree: true,
             delete_local_branch: false,
             delete_remote_branch: false,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct NavigationConfig {
+    /// Include open projects in keyboard navigation (cmd+j/k)
+    #[serde(rename = "includeProjects")]
+    pub include_projects: bool,
+}
+
+impl Default for NavigationConfig {
+    fn default() -> Self {
+        Self {
+            include_projects: true,
         }
     }
 }
