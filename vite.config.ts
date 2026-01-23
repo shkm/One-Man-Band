@@ -6,7 +6,7 @@ import { execSync } from "child_process";
 // @ts-expect-error process is a nodejs global
 const host = process.env.TAURI_DEV_HOST;
 // @ts-expect-error process is a nodejs global
-const port = parseInt(process.env.VITE_PORT || '1420', 10);
+const port = parseInt(process.env.VITE_PORT || "1420", 10);
 
 // Get git commit hash: use GITHUB_SHA in CI, otherwise run git locally
 function getGitHash(): string {
