@@ -25,7 +25,7 @@ import { useActions, ActionHandlers } from './hooks/useActions';
 import { arrayMove } from '@dnd-kit/sortable';
 import { sendOsNotification } from './lib/notifications';
 import { matchesShortcut } from './lib/keyboard';
-import { Project, Worktree, RunningTask, MergeCompleted } from './types';
+import { Project, Worktree, RunningTask, MergeCompleted, ScratchTerminal } from './types';
 
 const EXPANDED_PROJECTS_KEY = 'onemanband:expandedProjects';
 const SHOW_ACTIVE_ONLY_KEY = 'onemanband:showActiveOnly';
@@ -53,7 +53,14 @@ function App() {
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
 
   // Previous view state (for cmd+' to toggle back)
-  const [previousView, setPreviousView] = useState<{ worktreeId: string | null; projectId: string | null } | null>(null);
+  const [previousView, setPreviousView] = useState<{ worktreeId: string | null; projectId: string | null; scratchId: string | null } | null>(null);
+
+  // Active scratch terminal (when viewing a scratch terminal instead of worktree/project)
+  const [activeScratchId, setActiveScratchId] = useState<string | null>(null);
+
+  // Scratch terminals - general-purpose terminals not tied to any project
+  const [scratchTerminals, setScratchTerminals] = useState<ScratchTerminal[]>([]);
+  const [scratchTerminalCounter, setScratchTerminalCounter] = useState(0);
 
   // Open project terminals (main repo shells are kept alive for these)
   const [openProjectIds, setOpenProjectIds] = useState<Set<string>>(new Set());
@@ -117,9 +124,9 @@ function App() {
   // Get current project's selected task
   const activeSelectedTask = activeProjectPath ? selectedTasksByProject.get(activeProjectPath) ?? null : null;
 
-  // Active entity ID - worktree takes precedence, otherwise use project
-  // This allows drawer/focus/task state to work for both views
-  const activeEntityId = activeWorktreeId ?? activeProjectId;
+  // Active entity ID - worktree takes precedence, then scratch, then project
+  // This allows drawer/focus/task state to work for all views
+  const activeEntityId = activeWorktreeId ?? activeScratchId ?? activeProjectId;
 
   // Find the running task that matches the selected task (for TaskSelector controls)
   const activeRunningTask = useMemo(() => {
@@ -245,6 +252,13 @@ function App() {
       .map(w => w.id);
   }, [projects, openWorktreeIds]);
 
+  // Open entities in sidebar order - scratch terminals first, then worktrees
+  // Used for unified keyboard navigation (1-9, j/k)
+  const openEntitiesInOrder = useMemo(() => {
+    const scratchIds = scratchTerminals.map(s => ({ type: 'scratch' as const, id: s.id }));
+    const worktreeIds = openWorktreesInOrder.map(id => ({ type: 'worktree' as const, id }));
+    return [...scratchIds, ...worktreeIds];
+  }, [scratchTerminals, openWorktreesInOrder]);
 
   // Worktrees with running tasks and their counts (for sidebar indicator)
   const runningTaskCounts = useMemo(() => {
@@ -280,6 +294,22 @@ function App() {
       setExpandedProjects(new Set(projects.map((p) => p.id)));
     }
   }, [projects]);
+
+  // Create initial scratch terminal on startup if configured
+  const hasCreatedInitialScratch = useRef(false);
+  useEffect(() => {
+    if (!hasCreatedInitialScratch.current && config.scratch.startOnLaunch && scratchTerminals.length === 0) {
+      hasCreatedInitialScratch.current = true;
+      const newScratch: ScratchTerminal = {
+        id: 'scratch-1',
+        name: 'Terminal 1',
+        order: 1,
+      };
+      setScratchTerminals([newScratch]);
+      setScratchTerminalCounter(1);
+      setActiveScratchId(newScratch.id);
+    }
+  }, [config.scratch.startOnLaunch, scratchTerminals.length]);
 
   // Persist expanded projects to localStorage
   useEffect(() => {
@@ -970,29 +1000,37 @@ function App() {
   const handleSwitchToPreviousView = useCallback(() => {
     if (!previousView) return;
 
-    // Check if previous view is still valid (worktree/project still exists and is open)
+    // Check if previous view is still valid (worktree/project/scratch still exists and is open)
     const prevWorktreeId = previousView.worktreeId;
     const prevProjectId = previousView.projectId;
+    const prevScratchId = previousView.scratchId;
 
     // Save current view before switching
-    const currentView = { worktreeId: activeWorktreeId, projectId: activeProjectId };
+    const currentView = { worktreeId: activeWorktreeId, projectId: activeProjectId, scratchId: activeScratchId };
 
     if (prevWorktreeId && openWorktreeIds.has(prevWorktreeId)) {
       // Switch to previous worktree
       setActiveWorktreeId(prevWorktreeId);
+      setActiveScratchId(null);
       // Update project context if needed
       if (prevProjectId) {
         setActiveProjectId(prevProjectId);
       }
       setPreviousView(currentView);
+    } else if (prevScratchId && scratchTerminals.some(s => s.id === prevScratchId)) {
+      // Switch to previous scratch terminal
+      setActiveWorktreeId(null);
+      setActiveScratchId(prevScratchId);
+      setPreviousView(currentView);
     } else if (prevProjectId && openProjectIds.has(prevProjectId)) {
       // Switch to previous project view
       setActiveWorktreeId(null);
+      setActiveScratchId(null);
       setActiveProjectId(prevProjectId);
       setPreviousView(currentView);
     }
     // If previous view is no longer valid, do nothing
-  }, [previousView, activeWorktreeId, activeProjectId, openWorktreeIds, openProjectIds]);
+  }, [previousView, activeWorktreeId, activeProjectId, activeScratchId, openWorktreeIds, openProjectIds, scratchTerminals]);
 
   // Zoom handlers
   const handleZoomIn = useCallback(() => {
@@ -1346,6 +1384,7 @@ function App() {
         setLoadingWorktrees((prev) => new Set([...prev, worktree.id]));
         setOpenWorktreeIds((prev) => new Set([...prev, worktree.id]));
         setActiveWorktreeId(worktree.id);
+        setActiveScratchId(null);
       } catch (err) {
         const errorMessage = String(err);
         console.log('[handleAddWorktree] Error caught:', errorMessage);
@@ -1383,6 +1422,7 @@ function App() {
       console.log('[handleStashAndCreate] Creating worktree...');
       const worktree = await createWorktree(project.path);
       console.log('[handleStashAndCreate] Worktree created:', worktree.name);
+      setActiveScratchId(null);
 
       // Pop the stash to restore changes
       console.log('[handleStashAndCreate] Popping stash with id:', stashId);
@@ -1417,7 +1457,7 @@ function App() {
       setSessionTouchedProjects((prev) => new Set([...prev, project.id]));
       // Save current view as previous before switching (only if actually changing)
       if (activeWorktreeId !== worktree.id) {
-        setPreviousView({ worktreeId: activeWorktreeId, projectId: activeProjectId });
+        setPreviousView({ worktreeId: activeWorktreeId, projectId: activeProjectId, scratchId: activeScratchId });
       }
       setActiveProjectId(project.id);
       // Auto-open project terminal so cmd+0 can switch to it
@@ -1431,7 +1471,8 @@ function App() {
       return new Set([...prev, worktree.id]);
     });
     setActiveWorktreeId(worktree.id);
-  }, [projects, activeWorktreeId, activeProjectId]);
+    setActiveScratchId(null);
+  }, [projects, activeWorktreeId, activeProjectId, activeScratchId]);
 
   const handleSelectProject = useCallback((project: Project) => {
     // Mark the project as active (touched this session)
@@ -1442,11 +1483,102 @@ function App() {
       return new Set([...prev, project.id]);
     });
     // Save current view as previous before switching
-    setPreviousView({ worktreeId: activeWorktreeId, projectId: activeProjectId });
-    // Clear worktree selection, set project as active
+    setPreviousView({ worktreeId: activeWorktreeId, projectId: activeProjectId, scratchId: activeScratchId });
+    // Clear worktree and scratch selection, set project as active
     setActiveWorktreeId(null);
+    setActiveScratchId(null);
     setActiveProjectId(project.id);
-  }, [activeWorktreeId, activeProjectId]);
+  }, [activeWorktreeId, activeProjectId, activeScratchId]);
+
+  // Scratch terminal handlers
+  const handleAddScratchTerminal = useCallback(() => {
+    const newCounter = scratchTerminalCounter + 1;
+    const newScratch: ScratchTerminal = {
+      id: `scratch-${newCounter}`,
+      name: `Terminal ${newCounter}`,
+      order: newCounter,
+    };
+    setScratchTerminals((prev) => [...prev, newScratch]);
+    setScratchTerminalCounter(newCounter);
+    // Select the new scratch terminal
+    setPreviousView({ worktreeId: activeWorktreeId, projectId: activeProjectId, scratchId: activeScratchId });
+    setActiveWorktreeId(null);
+    setActiveScratchId(newScratch.id);
+  }, [scratchTerminalCounter, activeWorktreeId, activeProjectId, activeScratchId]);
+
+  const handleSelectScratch = useCallback((scratchId: string) => {
+    // Save current view as previous before switching
+    if (activeScratchId !== scratchId) {
+      setPreviousView({ worktreeId: activeWorktreeId, projectId: activeProjectId, scratchId: activeScratchId });
+    }
+    setActiveWorktreeId(null);
+    setActiveScratchId(scratchId);
+  }, [activeWorktreeId, activeProjectId, activeScratchId]);
+
+  const handleCloseScratch = useCallback((scratchId: string) => {
+    setScratchTerminals((prev) => prev.filter((s) => s.id !== scratchId));
+    // Clean up drawer tabs and focus state for this scratch terminal
+    setDrawerTabs((prev) => {
+      const next = new Map(prev);
+      next.delete(scratchId);
+      return next;
+    });
+    setDrawerActiveTabIds((prev) => {
+      const next = new Map(prev);
+      next.delete(scratchId);
+      return next;
+    });
+    setDrawerTabCounters((prev) => {
+      const next = new Map(prev);
+      next.delete(scratchId);
+      return next;
+    });
+    setFocusStates((prev) => {
+      const next = new Map(prev);
+      next.delete(scratchId);
+      return next;
+    });
+    // If this was the active scratch terminal, switch to another entity
+    if (activeScratchId === scratchId) {
+      const remainingScratch = scratchTerminals.filter((s) => s.id !== scratchId);
+      if (remainingScratch.length > 0) {
+        setActiveScratchId(remainingScratch[remainingScratch.length - 1].id);
+      } else if (openWorktreeIds.size > 0) {
+        // Switch to an open worktree
+        const firstWorktreeId = Array.from(openWorktreeIds)[0];
+        setActiveWorktreeId(firstWorktreeId);
+        setActiveScratchId(null);
+        // Find and set the project for this worktree
+        for (const project of projects) {
+          if (project.worktrees.some(w => w.id === firstWorktreeId)) {
+            setActiveProjectId(project.id);
+            break;
+          }
+        }
+      } else if (openProjectIds.size > 0) {
+        setActiveScratchId(null);
+        setActiveProjectId(Array.from(openProjectIds)[0]);
+      } else {
+        setActiveScratchId(null);
+      }
+    }
+  }, [activeScratchId, scratchTerminals, openWorktreeIds, openProjectIds, projects]);
+
+  const handleRenameScratch = useCallback((scratchId: string, newName: string) => {
+    setScratchTerminals((prev) =>
+      prev.map((s) => (s.id === scratchId ? { ...s, name: newName } : s))
+    );
+  }, []);
+
+  const handleReorderScratchTerminals = useCallback((scratchIds: string[]) => {
+    setScratchTerminals((prev) => {
+      const scratchMap = new Map(prev.map((s) => [s.id, s]));
+      return scratchIds.map((id, index) => ({
+        ...scratchMap.get(id)!,
+        order: index,
+      }));
+    });
+  }, []);
 
   const handleCloseProject = useCallback((projectId: string) => {
     setOpenProjectIds((prev) => {
@@ -1824,8 +1956,8 @@ function App() {
         setIsModifierKeyHeld(true);
       }
 
-      // Selection by index (1-9) - includes projects when navigation.includeProjects is enabled
-      const indexShortcuts = [
+      // Entity selection by index (1-9) - includes scratch terminals and worktrees
+      const entityShortcuts = [
         mappings.worktree1,
         mappings.worktree2,
         mappings.worktree3,
@@ -1836,41 +1968,18 @@ function App() {
         mappings.worktree8,
         mappings.worktree9,
       ];
-      const includeProjectsInIndex = config.navigation?.includeProjects ?? false;
-      if (includeProjectsInIndex) {
-        // Build items list including projects
-        const indexItems: Array<{ type: 'project' | 'worktree'; id: string }> = [];
-        for (const project of projects) {
-          if (openProjectIds.has(project.id)) {
-            indexItems.push({ type: 'project', id: project.id });
+      for (let i = 0; i < entityShortcuts.length; i++) {
+        if (matchesShortcut(e, entityShortcuts[i]) && i < openEntitiesInOrder.length) {
+          e.preventDefault();
+          const entity = openEntitiesInOrder[i];
+          if (entity.type === 'scratch') {
+            setActiveWorktreeId(null);
+            setActiveScratchId(entity.id);
+          } else {
+            setActiveWorktreeId(entity.id);
+            setActiveScratchId(null);
           }
-          for (const worktree of project.worktrees) {
-            if (openWorktreeIds.has(worktree.id)) {
-              indexItems.push({ type: 'worktree', id: worktree.id });
-            }
-          }
-        }
-        for (let i = 0; i < indexShortcuts.length; i++) {
-          if (matchesShortcut(e, indexShortcuts[i]) && i < indexItems.length) {
-            e.preventDefault();
-            const item = indexItems[i];
-            if (item.type === 'worktree') {
-              setActiveWorktreeId(item.id);
-            } else {
-              setActiveWorktreeId(null);
-              setActiveProjectId(item.id);
-            }
-            break;
-          }
-        }
-      } else {
-        // Original worktree-only index selection
-        for (let i = 0; i < indexShortcuts.length; i++) {
-          if (matchesShortcut(e, indexShortcuts[i]) && i < openWorktreesInOrder.length) {
-            e.preventDefault();
-            setActiveWorktreeId(openWorktreesInOrder[i]);
-            break;
-          }
+          break;
         }
       }
 
@@ -1893,12 +2002,13 @@ function App() {
         return;
       }
 
-      // Cmd+0: Switch from worktree to project view (hardcoded, not configurable)
-      if ((e.metaKey || e.ctrlKey) && e.key === '0' && activeWorktreeId && activeProjectId) {
+      // Cmd+0: Switch from worktree/scratch to project view (hardcoded, not configurable)
+      if ((e.metaKey || e.ctrlKey) && e.key === '0' && (activeWorktreeId || activeScratchId) && activeProjectId) {
         e.preventDefault();
         // Save current view as previous before switching
-        setPreviousView({ worktreeId: activeWorktreeId, projectId: activeProjectId });
+        setPreviousView({ worktreeId: activeWorktreeId, projectId: activeProjectId, scratchId: activeScratchId });
         setActiveWorktreeId(null);
+        setActiveScratchId(null);
         return;
       }
 
@@ -1938,11 +2048,17 @@ function App() {
         }
 
         // Cmd+W to close active terminal tab (when drawer is open)
-        if ((e.metaKey || e.ctrlKey) && e.key === 'w' && isDrawerOpen) {
+        if ((e.metaKey || e.ctrlKey) && e.key === 'w' && isDrawerOpen && !e.shiftKey) {
           e.preventDefault();
           if (activeDrawerTabId) {
             handleCloseDrawerTab(activeDrawerTabId);
           }
+        }
+
+        // Cmd+Shift+W to close current scratch terminal
+        if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'w' && activeScratchId) {
+          e.preventDefault();
+          handleCloseScratch(activeScratchId);
         }
 
         // Ctrl+Tab / Ctrl+Shift+Tab to cycle through drawer tabs (when drawer is open and focused)
@@ -1970,71 +2086,46 @@ function App() {
         }
       }
 
-      // Navigation - cycle through active worktrees (and optionally projects) in sidebar order
-      const includeProjects = config.navigation?.includeProjects ?? false;
-      if (includeProjects) {
-        // Build navigation items including projects
-        const navItems: Array<{ type: 'project' | 'worktree'; id: string }> = [];
-        for (const project of projects) {
-          if (openProjectIds.has(project.id)) {
-            navItems.push({ type: 'project', id: project.id });
+      // Entity navigation - cycle through all entities (scratch terminals + worktrees) in sidebar order
+      // Works from worktree, scratch, or project view
+      if (openEntitiesInOrder.length > 0) {
+        // Find current entity index
+        const currentEntityId = activeWorktreeId ?? activeScratchId;
+        const currentIndex = currentEntityId
+          ? openEntitiesInOrder.findIndex(e => e.id === currentEntityId)
+          : -1;
+
+        const selectEntity = (entity: { type: 'scratch' | 'worktree'; id: string }) => {
+          if (entity.type === 'scratch') {
+            setActiveWorktreeId(null);
+            setActiveScratchId(entity.id);
+          } else {
+            setActiveWorktreeId(entity.id);
+            setActiveScratchId(null);
           }
-          for (const worktree of project.worktrees) {
-            if (openWorktreeIds.has(worktree.id)) {
-              navItems.push({ type: 'worktree', id: worktree.id });
-            }
-          }
-        }
+        };
 
-        if (navItems.length > 0) {
-          const currentId = activeWorktreeId ?? activeProjectId;
-          const currentIndex = navItems.findIndex(item => item.id === currentId);
-
-          const selectItem = (item: { type: 'project' | 'worktree'; id: string }) => {
-            if (item.type === 'worktree') {
-              setActiveWorktreeId(item.id);
-            } else {
-              setActiveWorktreeId(null);
-              setActiveProjectId(item.id);
-            }
-          };
-
+        if (currentIndex !== -1) {
+          // Currently viewing an entity - cycle through them
           if (matchesShortcut(e, mappings.worktreePrev)) {
             e.preventDefault();
-            const prevIndex = currentIndex <= 0 ? navItems.length - 1 : currentIndex - 1;
-            selectItem(navItems[prevIndex]);
+            const prevIndex = currentIndex === 0 ? openEntitiesInOrder.length - 1 : currentIndex - 1;
+            selectEntity(openEntitiesInOrder[prevIndex]);
           }
           if (matchesShortcut(e, mappings.worktreeNext)) {
             e.preventDefault();
-            const nextIndex = currentIndex === -1 || currentIndex === navItems.length - 1 ? 0 : currentIndex + 1;
-            selectItem(navItems[nextIndex]);
-          }
-        }
-      } else if (openWorktreesInOrder.length > 0) {
-        // Original worktree-only navigation
-        if (activeWorktreeId) {
-          const currentIndex = openWorktreesInOrder.indexOf(activeWorktreeId);
-          if (currentIndex !== -1) {
-            if (matchesShortcut(e, mappings.worktreePrev)) {
-              e.preventDefault();
-              const prevIndex = currentIndex === 0 ? openWorktreesInOrder.length - 1 : currentIndex - 1;
-              setActiveWorktreeId(openWorktreesInOrder[prevIndex]);
-            }
-            if (matchesShortcut(e, mappings.worktreeNext)) {
-              e.preventDefault();
-              const nextIndex = currentIndex === openWorktreesInOrder.length - 1 ? 0 : currentIndex + 1;
-              setActiveWorktreeId(openWorktreesInOrder[nextIndex]);
-            }
+            const nextIndex = currentIndex === openEntitiesInOrder.length - 1 ? 0 : currentIndex + 1;
+            selectEntity(openEntitiesInOrder[nextIndex]);
           }
         } else {
-          // Currently viewing a project - select first/last worktree
+          // Currently viewing a project (no entity selected) - select first/last entity
           if (matchesShortcut(e, mappings.worktreePrev)) {
             e.preventDefault();
-            setActiveWorktreeId(openWorktreesInOrder[openWorktreesInOrder.length - 1]);
+            selectEntity(openEntitiesInOrder[openEntitiesInOrder.length - 1]);
           }
           if (matchesShortcut(e, mappings.worktreeNext)) {
             e.preventDefault();
-            setActiveWorktreeId(openWorktreesInOrder[0]);
+            selectEntity(openEntitiesInOrder[0]);
           }
         }
       }
@@ -2055,10 +2146,14 @@ function App() {
         return;
       }
 
-      // New workspace (requires an active project)
-      if (matchesShortcut(e, mappings.newWorkspace) && activeProjectId) {
+      // New workspace - creates worktree when in project/worktree, scratch terminal otherwise
+      if (matchesShortcut(e, mappings.newWorkspace)) {
         e.preventDefault();
-        handleAddWorktree(activeProjectId);
+        if (activeProjectId && !activeScratchId) {
+          handleAddWorktree(activeProjectId);
+        } else {
+          handleAddScratchTerminal();
+        }
       }
     };
 
@@ -2083,7 +2178,7 @@ function App() {
       window.removeEventListener('keyup', handleKeyUp);
       window.removeEventListener('blur', handleBlur);
     };
-  }, [activeWorktreeId, activeProjectId, activeEntityId, isDrawerOpen, activeDrawerTabId, config, projects, openProjectIds, openWorktreeIds, openWorktreesInOrder, handleToggleDrawer, handleToggleDrawerExpand, handleAddDrawerTab, handleCloseDrawerTab, handleToggleRightPanel, handleToggleTask, handleSwitchFocus, handleSwitchToPreviousView, handleAddWorktree, handleToggleTaskSwitcher, handleZoomIn, handleZoomOut, handleZoomReset]);
+  }, [activeWorktreeId, activeProjectId, activeScratchId, activeEntityId, isDrawerOpen, activeDrawerTabId, config, openEntitiesInOrder, handleToggleDrawer, handleToggleDrawerExpand, handleAddDrawerTab, handleCloseDrawerTab, handleToggleRightPanel, handleToggleTask, handleSwitchFocus, handleSwitchToPreviousView, handleAddWorktree, handleAddScratchTerminal, handleCloseScratch, handleToggleTaskSwitcher, handleZoomIn, handleZoomOut, handleZoomReset]);
 
   // Listen for menu bar actions from the backend
   useEffect(() => {
@@ -2211,11 +2306,12 @@ function App() {
               projects={projects}
               activeProjectId={activeProjectId}
               activeWorktreeId={activeWorktreeId}
+              activeScratchId={activeScratchId}
               activeWorktree={activeWorktree}
+              scratchTerminals={scratchTerminals}
               openProjectIds={openProjectIds}
               openWorktreeIds={openWorktreeIds}
-              openWorktreesInOrder={openWorktreesInOrder}
-              includeProjectsInNav={config.navigation?.includeProjects ?? false}
+              openEntitiesInOrder={openEntitiesInOrder}
               isModifierKeyHeld={isModifierKeyHeld && !isModalOpen}
               loadingWorktrees={loadingWorktrees}
               notifiedWorktreeIds={notifiedWorktreeIds}
@@ -2259,6 +2355,11 @@ function App() {
               onRenameWorktree={renameWorktree}
               onReorderProjects={handleReorderProjects}
               onReorderWorktrees={handleReorderWorktrees}
+              onAddScratchTerminal={handleAddScratchTerminal}
+              onSelectScratch={handleSelectScratch}
+              onCloseScratch={handleCloseScratch}
+              onRenameScratch={handleRenameScratch}
+              onReorderScratchTerminals={handleReorderScratchTerminals}
             />
           </div>
         </Panel>
@@ -2277,6 +2378,8 @@ function App() {
                 activeWorktreeId={activeWorktreeId}
                 openProjectIds={openProjectIds}
                 activeProjectId={activeProjectId}
+                scratchTerminals={scratchTerminals}
+                activeScratchId={activeScratchId}
                 terminalConfig={mainTerminalConfig}
                 mappings={config.mappings}
                 activityTimeout={config.indicators.activityTimeout}
@@ -2410,10 +2513,10 @@ function App() {
           </PanelGroup>
         </Panel>
 
-        {/* Right Panel - collapsible */}
+        {/* Right Panel - collapsible (only for worktrees/projects, not scratch) */}
         <PanelResizeHandle
           className={`w-px transition-colors focus:outline-none !cursor-col-resize ${
-            (activeWorktreeId || activeProjectId) && isRightPanelOpen
+            (activeWorktreeId || (activeProjectId && !activeScratchId)) && isRightPanelOpen
               ? 'bg-zinc-700 hover:bg-zinc-500'
               : 'bg-transparent pointer-events-none'
           }`}
