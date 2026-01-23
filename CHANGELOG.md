@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0](https://github.com/shkm/One-Man-Band/compare/v0.4.0...v0.5.0) (2026-01-23)
+
+
+### Features
+
+* add AI actions for merge conflict resolution ([51d7e87](https://github.com/shkm/One-Man-Band/commit/51d7e87ff6029338f0c6bbd764e9071c7bcd3f24))
+* add minijinja templating for worktree directory configuration ([cf83d67](https://github.com/shkm/One-Man-Band/commit/cf83d6793d2365ed4bb900f2c876c48c1e258b3a))
+* add named task URLs and dynamic port support ([9727426](https://github.com/shkm/One-Man-Band/commit/972742631701c17b9a1c72d408104f85cb4811cb))
+* add rebase conflict resolution support ([9abbab5](https://github.com/shkm/One-Man-Band/commit/9abbab5d550ce7bd7d95bd20c10e831187484007))
+* add shell option when main task exits ([dbf7650](https://github.com/shkm/One-Man-Band/commit/dbf765032899d10459ba8c41086f5c3234769653))
+* add terminal zoom with configurable keyboard shortcuts ([7859c8d](https://github.com/shkm/One-Man-Band/commit/7859c8dabdbd82c979e0bfbd59d3764001c545c0))
+* add URL display and minijinja templating for tasks ([92ed5fc](https://github.com/shkm/One-Man-Band/commit/92ed5fcaef296e00d7883fdbcb90d1a5ced74362))
+* improve AI merge conflict resolution flow ([08ef8b8](https://github.com/shkm/One-Man-Band/commit/08ef8b8b99bda43c5b33c6df327daa73a6323dd5))
+
+
+### Bug Fixes
+
+* button label and git directory resolution for worktrees ([4dc0709](https://github.com/shkm/One-Man-Band/commit/4dc0709d7b4e758014343b39d38ae29a19813d15))
+* correct path handling for rebase conflict resolution ([d7aae84](https://github.com/shkm/One-Man-Band/commit/d7aae8437918de8f507425ab823ecc6e8b70f017))
+* remove grab cursor on hover for draggable items ([8902aff](https://github.com/shkm/One-Man-Band/commit/8902aff28ba08fcc7b39c1bdfbaf6e2165b27eb6))
+
 ## [0.4.0](https://github.com/shkm/One-Man-Band/compare/v0.3.0...v0.4.0) (2026-01-22)
 
 
