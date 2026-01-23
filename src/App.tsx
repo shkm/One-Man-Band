@@ -237,6 +237,13 @@ function App() {
     return projects.find(p => p.id === activeProjectId) ?? null;
   }, [activeProjectId, projects]);
 
+  // Helper to determine entity type from ID (for drawer terminals)
+  const getEntityType = useCallback((entityId: string): 'worktree' | 'project' | 'scratch' => {
+    if (scratchTerminals.some(s => s.id === entityId)) return 'scratch';
+    if (projects.some(p => p.id === entityId)) return 'project';
+    return 'worktree';
+  }, [scratchTerminals, projects]);
+
   // Git status target - either the active worktree or project
   const gitStatusTarget = useMemo(() => {
     if (activeWorktree) return activeWorktree;
@@ -2543,6 +2550,7 @@ function App() {
                           <DrawerTerminal
                             id={tab.id}
                             worktreeId={entityId}
+                            entityType={getEntityType(entityId)}
                             isActive={
                               entityId === activeEntityId &&
                               isDrawerOpen &&

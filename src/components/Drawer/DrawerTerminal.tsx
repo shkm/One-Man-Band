@@ -27,9 +27,12 @@ function debounce<T extends (...args: unknown[]) => void>(fn: T, ms: number): T 
   }) as T;
 }
 
+type EntityType = 'worktree' | 'project' | 'scratch';
+
 interface DrawerTerminalProps {
   id: string;
   worktreeId: string;
+  entityType: EntityType;
   isActive: boolean;
   shouldAutoFocus: boolean;
   terminalConfig: TerminalConfig;
@@ -39,7 +42,7 @@ interface DrawerTerminalProps {
   onPtyIdReady?: (ptyId: string) => void;
 }
 
-export function DrawerTerminal({ id, worktreeId, isActive, shouldAutoFocus, terminalConfig, mappings, onClose, onFocus, onPtyIdReady }: DrawerTerminalProps) {
+export function DrawerTerminal({ id, worktreeId, entityType, isActive, shouldAutoFocus, terminalConfig, mappings, onClose, onFocus, onPtyIdReady }: DrawerTerminalProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const terminalRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
@@ -184,8 +187,7 @@ export function DrawerTerminal({ id, worktreeId, isActive, shouldAutoFocus, term
       fitAddon.fit();
       const cols = terminal.cols;
       const rows = terminal.rows;
-      // Drawer terminals always spawn a shell (not the main command)
-      const newPtyId = await spawnRef.current(worktreeId, 'shell', cols, rows);
+      const newPtyId = await spawnRef.current(worktreeId, entityType, cols, rows);
       if (newPtyId && isMounted) {
         onPtyIdReadyRef.current?.(newPtyId);
       }

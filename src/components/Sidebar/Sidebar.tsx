@@ -815,8 +815,8 @@ export function Sidebar({
         />
       )}
 
-      {/* Status bar - shows different actions for project vs worktree */}
-      {(activeWorktreeId || activeProjectId) && (
+      {/* Status bar - shows different actions for project vs worktree vs scratch */}
+      {(activeWorktreeId || activeProjectId || activeScratchId) && (
         <div className="flex items-center h-8 px-1 border-t border-zinc-800 flex-shrink-0">
           {activeWorktreeId ? (
             <>
@@ -854,6 +854,20 @@ export function Sidebar({
               >
                 <Trash2 size={16} />
               </button>
+            </>
+          ) : activeScratchId ? (
+            <>
+              {/* Scratch-specific actions - just drawer toggle */}
+              <button
+                onClick={onToggleDrawer}
+                className={`p-1.5 rounded hover:bg-zinc-800 flex-shrink-0 ${
+                  isDrawerOpen ? 'text-blue-400' : 'text-zinc-500 hover:text-zinc-300'
+                }`}
+                title="Toggle terminal (Ctrl+`)"
+              >
+                <Terminal size={16} />
+              </button>
+              <div className="flex-1" />
             </>
           ) : (
             <>

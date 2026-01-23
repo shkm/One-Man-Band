@@ -3,7 +3,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { listen, UnlistenFn } from '@tauri-apps/api/event';
 import { PtyOutput } from '../types';
 
-type PtyType = 'main' | 'shell' | 'project' | 'scratch';
+type PtyType = 'main' | 'shell' | 'worktree' | 'project' | 'scratch';
 
 export function usePty(onOutput?: (data: string) => void) {
   const [ptyId, setPtyId] = useState<string | null>(null);
@@ -62,6 +62,7 @@ export function usePty(onOutput?: (data: string) => void) {
         command = 'spawn_scratch_terminal';
         params = { scratchId: worktreeId, cols, rows };
       } else {
+        // 'shell' or 'worktree' - both spawn a terminal in the worktree directory
         command = 'spawn_terminal';
         params = { worktreeId, cols, rows };
       }
