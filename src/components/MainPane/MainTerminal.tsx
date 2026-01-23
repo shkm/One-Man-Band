@@ -6,7 +6,7 @@ import { WebglAddon } from '@xterm/addon-webgl';
 import { LigaturesAddon } from '@xterm/addon-ligatures';
 import { listen } from '@tauri-apps/api/event';
 import { openUrl } from '@tauri-apps/plugin-opener';
-import { Loader2, RotateCcw, Terminal as TerminalIcon } from 'lucide-react';
+import { Loader2, Play, RotateCcw, Terminal as TerminalIcon } from 'lucide-react';
 import { usePty } from '../../hooks/usePty';
 import { TerminalConfig, MappingsConfig } from '../../hooks/useConfig';
 import { useTerminalFontSync } from '../../hooks/useTerminalFontSync';
@@ -53,6 +53,7 @@ export function MainTerminal({ entityId, type = 'main', isActive, shouldAutoFocu
   useTerminalFontSync(terminalRef, fitAddonRef, terminalConfig);
   const [hasExited, setHasExited] = useState(false);
   const [exitInfo, setExitInfo] = useState<{ command: string; exitCode: number | null } | null>(null);
+  const [currentMode, setCurrentMode] = useState<'main' | 'project' | 'shell'>(type);
 
   // Progress indicator state refs (declared early so handleOutput can use them)
   // Only track activity when terminal is NOT active (background tabs only)
@@ -453,7 +454,7 @@ export function MainTerminal({ entityId, type = 'main', isActive, shouldAutoFocu
     };
   }, [entityId, type]);
 
-  // Restart handler for when the process exits
+  // Restart handler for when the process exits - restarts whatever was last running
   const handleRestart = useCallback(async () => {
     const terminal = terminalRef.current;
     const fitAddon = fitAddonRef.current;
@@ -461,7 +462,7 @@ export function MainTerminal({ entityId, type = 'main', isActive, shouldAutoFocu
 
     // Reset state
     setHasExited(false);
-    setIsReady(false);
+    setIsReady(currentMode === 'shell' || currentMode === 'project');
     setExitInfo(null);
     isActivityThinkingRef.current = false;
     isOscThinkingRef.current = false;
@@ -470,20 +471,15 @@ export function MainTerminal({ entityId, type = 'main', isActive, shouldAutoFocu
       activityTimeoutRef.current = null;
     }
 
-    // Clear terminal and show restart message
+    // Clear terminal
     terminal.clear();
 
     // Spawn new PTY with current terminal size
     const cols = terminal.cols;
     const rows = terminal.rows;
     spawnedAtRef.current = Date.now();
-    await spawn(entityId, type, cols, rows);
-
-    // For project type, mark as ready immediately
-    if (type === 'project') {
-      setIsReady(true);
-    }
-  }, [spawn, entityId, type]);
+    await spawn(entityId, currentMode, cols, rows);
+  }, [spawn, entityId, currentMode]);
 
   // Launch shell handler for when the user wants a shell instead of the main command
   const handleLaunchShell = useCallback(async () => {
@@ -495,6 +491,7 @@ export function MainTerminal({ entityId, type = 'main', isActive, shouldAutoFocu
     setHasExited(false);
     setIsReady(true); // Shell is ready immediately
     setExitInfo(null);
+    setCurrentMode('shell');
     isActivityThinkingRef.current = false;
     isOscThinkingRef.current = false;
     if (activityTimeoutRef.current) {
@@ -511,6 +508,34 @@ export function MainTerminal({ entityId, type = 'main', isActive, shouldAutoFocu
     spawnedAtRef.current = Date.now();
     await spawn(entityId, 'shell', cols, rows);
   }, [spawn, entityId]);
+
+  // Launch main task handler for when the user wants to switch from shell to main command
+  const handleLaunchMain = useCallback(async () => {
+    const terminal = terminalRef.current;
+    const fitAddon = fitAddonRef.current;
+    if (!terminal || !fitAddon) return;
+
+    // Reset state
+    setHasExited(false);
+    setIsReady(type === 'project'); // Main command needs to signal ready, project is ready immediately
+    setExitInfo(null);
+    setCurrentMode(type);
+    isActivityThinkingRef.current = false;
+    isOscThinkingRef.current = false;
+    if (activityTimeoutRef.current) {
+      clearTimeout(activityTimeoutRef.current);
+      activityTimeoutRef.current = null;
+    }
+
+    // Clear terminal
+    terminal.clear();
+
+    // Spawn main command with current terminal size
+    const cols = terminal.cols;
+    const rows = terminal.rows;
+    spawnedAtRef.current = Date.now();
+    await spawn(entityId, type, cols, rows);
+  }, [spawn, entityId, type]);
 
   // Store resize function in ref to avoid dependency issues
   const resizeRef = useRef(resize);
@@ -609,7 +634,15 @@ export function MainTerminal({ entityId, type = 'main', isActive, shouldAutoFocu
                 <RotateCcw size={16} />
                 <span>Restart</span>
               </button>
-              {type === 'main' && (
+              {currentMode === 'shell' ? (
+                <button
+                  onClick={handleLaunchMain}
+                  className="flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-md text-zinc-200 transition-colors"
+                >
+                  <Play size={16} />
+                  <span>Main</span>
+                </button>
+              ) : (
                 <button
                   onClick={handleLaunchShell}
                   className="flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-md text-zinc-200 transition-colors"
