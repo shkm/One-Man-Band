@@ -102,12 +102,13 @@ export function loadWebGLWithRecovery(terminal: Terminal): () => void {
  * @param terminal - The xterm.js Terminal instance
  * @param write - Function to write data to the PTY
  * @param shortcuts - Configurable keyboard shortcuts for copy/paste
+ * @returns Cleanup function to remove event listeners
  */
 export function attachKeyboardHandlers(
   terminal: Terminal,
   write: (data: string) => void,
   shortcuts?: TerminalShortcuts
-): void {
+): () => void {
   terminal.attachCustomKeyEventHandler((event) => {
     if (event.type !== 'keydown') return true;
 
@@ -144,4 +145,20 @@ export function attachKeyboardHandlers(
 
     return true; // Let xterm.js handle normally
   });
+
+  // Prevent native paste event when custom paste shortcut is configured.
+  // Without this, both the keyboard shortcut handler AND the browser's native
+  // paste event would fire, causing the content to be pasted twice.
+  const handlePaste = (event: ClipboardEvent) => {
+    if (shortcuts?.paste) {
+      event.preventDefault();
+    }
+  };
+
+  const element = terminal.element;
+  element?.addEventListener('paste', handlePaste);
+
+  return () => {
+    element?.removeEventListener('paste', handlePaste);
+  };
 }

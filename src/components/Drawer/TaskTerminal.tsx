@@ -144,7 +144,7 @@ export function TaskTerminal({
     fitAddonRef.current = fitAddon;
 
     // Attach custom keyboard handlers
-    attachKeyboardHandlers(
+    const cleanupKeyboardHandlers = attachKeyboardHandlers(
       terminal,
       (data) => {
         if (ptyIdRef.current) {
@@ -238,6 +238,7 @@ export function TaskTerminal({
     return () => {
       isMounted = false;
       onDataDisposable.dispose();
+      cleanupKeyboardHandlers();
       webglCleanup();
       containerRef.current?.removeEventListener('focusin', handleFocus);
       terminal.dispose();

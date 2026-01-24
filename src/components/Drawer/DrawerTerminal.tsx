@@ -164,7 +164,7 @@ export function DrawerTerminal({ id, entityId, directory, isActive, shouldAutoFo
     fitAddonRef.current = fitAddon;
 
     // Attach custom keyboard handlers (copy, paste, Shift+Enter for newline)
-    attachKeyboardHandlers(terminal, (data) => writeRef.current(data), {
+    const cleanupKeyboardHandlers = attachKeyboardHandlers(terminal, (data) => writeRef.current(data), {
       copy: mappings.terminalCopy,
       paste: mappings.terminalPaste,
     });
@@ -200,6 +200,7 @@ export function DrawerTerminal({ id, entityId, directory, isActive, shouldAutoFo
     return () => {
       isMounted = false;
       onDataDisposable.dispose();
+      cleanupKeyboardHandlers();
       webglCleanup?.();
       containerRef.current?.removeEventListener('focusin', handleFocus);
       terminal.dispose();
