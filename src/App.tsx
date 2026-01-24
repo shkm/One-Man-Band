@@ -1048,6 +1048,7 @@ function App() {
     } else if (prevScratchId && scratchTerminals.some(s => s.id === prevScratchId)) {
       // Switch to previous scratch terminal
       setActiveWorktreeId(null);
+      setActiveProjectId(null);
       setActiveScratchId(prevScratchId);
       setPreviousView(currentView);
     } else if (prevProjectId && openProjectIds.has(prevProjectId)) {
@@ -1604,6 +1605,7 @@ function App() {
     // Select the new scratch terminal
     setPreviousView({ worktreeId: activeWorktreeId, projectId: activeProjectId, scratchId: activeScratchId });
     setActiveWorktreeId(null);
+    setActiveProjectId(null);
     setActiveScratchId(newScratch.id);
   }, [scratchTerminalCounter, activeWorktreeId, activeProjectId, activeScratchId, homeDir]);
 
@@ -1613,6 +1615,7 @@ function App() {
       setPreviousView({ worktreeId: activeWorktreeId, projectId: activeProjectId, scratchId: activeScratchId });
     }
     setActiveWorktreeId(null);
+    setActiveProjectId(null);
     setActiveScratchId(scratchId);
   }, [activeWorktreeId, activeProjectId, activeScratchId]);
 
@@ -1967,6 +1970,7 @@ function App() {
     if (!entity) return;
     if (entity.type === 'scratch') {
       setActiveWorktreeId(null);
+      setActiveProjectId(null);
       setActiveScratchId(entity.id);
     } else if (entity.type === 'project') {
       setActiveWorktreeId(null);
@@ -2171,6 +2175,7 @@ function App() {
           const entity = openEntitiesInOrder[i];
           if (entity.type === 'scratch') {
             setActiveWorktreeId(null);
+            setActiveProjectId(null);
             setActiveScratchId(entity.id);
           } else if (entity.type === 'project') {
             setActiveWorktreeId(null);
@@ -2318,6 +2323,7 @@ function App() {
         const selectEntity = (entity: { type: 'scratch' | 'worktree' | 'project'; id: string }) => {
           if (entity.type === 'scratch') {
             setActiveWorktreeId(null);
+            setActiveProjectId(null);
             setActiveScratchId(entity.id);
           } else if (entity.type === 'project') {
             setActiveWorktreeId(null);
@@ -2564,6 +2570,7 @@ function App() {
           onNavigate={(type, id) => {
             if (type === 'scratch') {
               setActiveWorktreeId(null);
+              setActiveProjectId(null);
               setActiveScratchId(id);
             } else if (type === 'project') {
               setActiveWorktreeId(null);
