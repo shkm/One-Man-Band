@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0](https://github.com/shkm/shellflow/compare/v0.6.0...v0.7.0) (2026-01-24)
+
+
+### Features
+
+* add active/closed project management with project switcher ([42b3072](https://github.com/shkm/shellflow/commit/42b3072ef22bc1140549c900ae954be0e1d6c8b1))
+* add Cmd+Enter shortcut for merge/rebase completion banner ([fc104ad](https://github.com/shkm/shellflow/commit/fc104ad457bc65064d49900d6ce26ea96f287fa7))
+* add command palette ([1855412](https://github.com/shkm/shellflow/commit/18554120a76223568b6fe9572707a9f6fb753446))
+* add crash recovery with watchdog process ([ffd937d](https://github.com/shkm/shellflow/commit/ffd937d33387eb3659fd6d47b777ecac3899e8cf))
+* add error toast notifications for worktree creation failures ([9b1f355](https://github.com/shkm/shellflow/commit/9b1f355a770a060871a850535bcf55b71f652349))
+* add file drag-and-drop support for terminals ([10bae34](https://github.com/shkm/shellflow/commit/10bae347b2820a740f093ce2c9061ed19fe27453))
+* add focusNewBranchNames worktree config option ([f6eee1b](https://github.com/shkm/shellflow/commit/f6eee1b9b6ba0ef8a2461fc40ec8bbd112cd18f8))
+* add focusNewBranchNames worktree config option ([4383779](https://github.com/shkm/shellflow/commit/43837790eb903bd05d91be85d1b8a955dd7d8fd4))
+* add keyboard shortcuts for drawer tabs and branch renaming ([a27fe96](https://github.com/shkm/shellflow/commit/a27fe963db8d6fcd0e955ebfacd561e8aa7b2d28))
+* add new scratch terminal action with dedicated shortcut ([1b4efb8](https://github.com/shkm/shellflow/commit/1b4efb8ba8647f236c80b23fa69b0ac3e5c72b5a))
+* add unfocusedOpacity setting for dimming inactive panes ([10f55fd](https://github.com/shkm/shellflow/commit/10f55fd25cc4eb0f9d4e809e67d80ae39429f627))
+* improve close project workflow ([b03cafc](https://github.com/shkm/shellflow/commit/b03cafc12c72fd5d720e6d65098083c660a99977))
+
+
+### Bug Fixes
+
+* block global shortcuts when picker is open ([3579016](https://github.com/shkm/shellflow/commit/35790164cf6d578cb4a77641eb14eceb43927b03))
+* clear activeProjectId when switching to scratch terminal ([0a5106b](https://github.com/shkm/shellflow/commit/0a5106ba82a916f153dc08331349c33d0dff8d74))
+* focus main terminal after editing new worktree branch name ([2132eed](https://github.com/shkm/shellflow/commit/2132eed4f95c36afc7dd3cb5c1139b4b13be87ef))
+* make title changes bypass grace period for faster progress indicator ([1e7725f](https://github.com/shkm/shellflow/commit/1e7725f5f488b9224aacde41f42e397bae9c0878))
+* newly added projects not appearing in sidebar ([04841e8](https://github.com/shkm/shellflow/commit/04841e8a6d9d650b163f75929fcf6e2c8838a6db))
+* prevent double paste in terminal ([6735c61](https://github.com/shkm/shellflow/commit/6735c61f5010f2ec515830679b89db0ea8ae8e35))
+* reduce delay showing progress indicator after switching tabs ([1561895](https://github.com/shkm/shellflow/commit/156189518b45c9ce75116f7ba6f29626e5181992))
+
 ## [0.6.0](https://github.com/shkm/shellflow/compare/v0.5.0...v0.6.0) (2026-01-23)
 
 
