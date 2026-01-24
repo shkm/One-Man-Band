@@ -83,6 +83,8 @@ export interface MappingsConfig {
   terminalPaste: Shortcut;
   worktreePrev: Shortcut;
   worktreeNext: Shortcut;
+  drawerTabPrev: Shortcut;
+  drawerTabNext: Shortcut;
   worktree1: Shortcut;
   worktree2: Shortcut;
   worktree3: Shortcut;
@@ -92,6 +94,7 @@ export interface MappingsConfig {
   worktree7: Shortcut;
   worktree8: Shortcut;
   worktree9: Shortcut;
+  renameBranch: Shortcut;
   runTask: Shortcut;
   newWorkspace: Shortcut;
   switchFocus: Shortcut;
@@ -170,6 +173,8 @@ const defaultConfig: Config = {
     terminalPaste: '',
     worktreePrev: '',
     worktreeNext: '',
+    drawerTabPrev: '',
+    drawerTabNext: '',
     worktree1: '',
     worktree2: '',
     worktree3: '',
@@ -179,6 +184,7 @@ const defaultConfig: Config = {
     worktree7: '',
     worktree8: '',
     worktree9: '',
+    renameBranch: '',
     runTask: '',
     newWorkspace: '',
     switchFocus: '',
