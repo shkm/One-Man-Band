@@ -1455,6 +1455,8 @@ function App() {
       if (path) {
         try {
           const project = await addProject(path);
+          // Ensure project is marked as active in backend state
+          await touchProject(project.id);
           setExpandedProjects((prev) => new Set([...prev, project.id]));
           // Activate the newly added project immediately
           setOpenProjectIds((prev) => new Set([...prev, project.id]));
