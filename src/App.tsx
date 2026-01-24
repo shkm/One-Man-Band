@@ -28,6 +28,8 @@ import { arrayMove } from '@dnd-kit/sortable';
 import { sendOsNotification } from './lib/notifications';
 import { matchesShortcut } from './lib/keyboard';
 import { Project, Worktree, RunningTask, MergeCompleted, ScratchTerminal } from './types';
+import { ToastContainer } from './components/Toast';
+import { useToast } from './hooks/useToast';
 
 const EXPANDED_PROJECTS_KEY = 'shellflow:expandedProjects';
 const SELECTED_TASKS_KEY = 'shellflow:selectedTasks';
@@ -93,6 +95,9 @@ function App() {
   }, [activeWorktreeId, activeProjectId, projects]);
 
   const { config, errors: configErrors } = useConfig(activeProjectPath);
+
+  // Toast notifications
+  const { toasts, dismissToast, showError } = useToast();
 
   // Open worktrees (main terminals are kept alive for these)
   const [openWorktreeIds, setOpenWorktreeIds] = useState<Set<string>>(new Set());
@@ -1479,10 +1484,11 @@ function App() {
           setPendingStashProject(project);
         } else {
           console.error('Failed to create worktree:', err);
+          showError(`Failed to create worktree: ${errorMessage}`);
         }
       }
     },
-    [projects, createWorktree, config.worktree.focusNewBranchNames]
+    [projects, createWorktree, config.worktree.focusNewBranchNames, showError]
   );
 
   const handleStashAndCreate = useCallback(async () => {
@@ -2825,6 +2831,9 @@ function App() {
           </div>
         </Panel>
       </PanelGroup>
+
+      {/* Toast notifications */}
+      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
     </div>
   );
 }
