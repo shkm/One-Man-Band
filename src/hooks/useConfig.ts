@@ -63,6 +63,7 @@ export interface ScratchConfig {
 
 export interface WorktreeConfig {
   focusNewBranchNames: boolean;
+  merge: MergeConfig;
 }
 
 
@@ -70,7 +71,6 @@ export interface Config {
   main: MainConfig;
   drawer: DrawerConfig;
   apps: AppsConfig;
-  merge: MergeConfig;
   navigation: NavigationConfig;
   indicators: IndicatorsConfig;
   tasks: TaskConfig[];
@@ -111,12 +111,6 @@ const defaultConfig: Config = {
     terminal: 'Ghostty',
     editor: 'Zed',
   },
-  merge: {
-    strategy: 'merge',
-    deleteWorktree: true,
-    deleteLocalBranch: false,
-    deleteRemoteBranch: false,
-  },
   navigation: {
     includeProjects: true,
   },
@@ -133,6 +127,12 @@ const defaultConfig: Config = {
   },
   worktree: {
     focusNewBranchNames: false,
+    merge: {
+      strategy: 'merge',
+      deleteWorktree: true,
+      deleteLocalBranch: false,
+      deleteRemoteBranch: false,
+    },
   },
   unfocusedOpacity: 1,
 };

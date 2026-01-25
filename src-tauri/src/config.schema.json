@@ -149,34 +149,34 @@
           "type": "boolean",
           "description": "Focus the branch name input when creating a new worktree, allowing immediate editing",
           "default": false
-        }
-      },
-      "additionalProperties": false
-    },
-    "merge": {
-      "type": "object",
-      "description": "Configuration for merge operations",
-      "properties": {
-        "strategy": {
-          "type": "string",
-          "enum": ["merge", "rebase"],
-          "description": "Merge strategy to use",
-          "default": "merge"
         },
-        "deleteWorktree": {
-          "type": "boolean",
-          "description": "Delete the worktree after successful merge",
-          "default": true
-        },
-        "deleteLocalBranch": {
-          "type": "boolean",
-          "description": "Delete the local branch after successful merge",
-          "default": false
-        },
-        "deleteRemoteBranch": {
-          "type": "boolean",
-          "description": "Delete the remote branch after successful merge",
-          "default": false
+        "merge": {
+          "type": "object",
+          "description": "Configuration for merge operations",
+          "properties": {
+            "strategy": {
+              "type": "string",
+              "enum": ["merge", "rebase"],
+              "description": "Merge strategy to use",
+              "default": "merge"
+            },
+            "deleteWorktree": {
+              "type": "boolean",
+              "description": "Delete the worktree after successful merge",
+              "default": true
+            },
+            "deleteLocalBranch": {
+              "type": "boolean",
+              "description": "Delete the local branch after successful merge",
+              "default": false
+            },
+            "deleteRemoteBranch": {
+              "type": "boolean",
+              "description": "Delete the remote branch after successful merge",
+              "default": false
+            }
+          },
+          "additionalProperties": false
         }
       },
       "additionalProperties": false

@@ -39,14 +39,13 @@
       "except": [".claude", ".worktrees"]
     },
     // Focus the branch name input when creating a new worktree
-    "focusNewBranchNames": false
-  },
-
-  "merge": {
-    "strategy": "merge",
-    "deleteWorktree": true,
-    "deleteLocalBranch": false,
-    "deleteRemoteBranch": false
+    "focusNewBranchNames": false,
+    "merge": {
+      "strategy": "merge",
+      "deleteWorktree": true,
+      "deleteLocalBranch": false,
+      "deleteRemoteBranch": false
+    }
   },
 
   "navigation": {

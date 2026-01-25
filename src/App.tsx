@@ -2389,7 +2389,7 @@ function App() {
         <MergeModal
           worktree={pendingMergeInfo.worktree}
           projectPath={pendingMergeInfo.projectPath}
-          defaultConfig={config.merge}
+          defaultConfig={config.worktree.merge}
           onClose={() => setPendingMergeId(null)}
           onMergeComplete={handleMergeComplete}
           onTriggerAction={(actionType, context) => {

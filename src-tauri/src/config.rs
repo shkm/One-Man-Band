@@ -25,7 +25,6 @@ pub struct Config {
     pub drawer: DrawerConfig,
     pub apps: AppsConfig,
     pub worktree: WorktreeConfig,
-    pub merge: MergeConfig,
     pub navigation: NavigationConfig,
     pub indicators: IndicatorsConfig,
     pub tasks: Vec<TaskConfig>,
@@ -43,7 +42,6 @@ impl Default for Config {
             drawer: DrawerConfig::default(),
             apps: AppsConfig::default(),
             worktree: WorktreeConfig::default(),
-            merge: MergeConfig::default(),
             navigation: NavigationConfig::default(),
             indicators: IndicatorsConfig::default(),
             tasks: Vec::new(),
@@ -309,6 +307,9 @@ pub struct WorktreeConfig {
     /// Focus the branch name input when creating a new worktree
     #[serde(rename = "focusNewBranchNames")]
     pub focus_new_branch_names: bool,
+
+    /// Configuration for merge operations
+    pub merge: MergeConfig,
 }
 
 impl Default for WorktreeConfig {
@@ -318,6 +319,7 @@ impl Default for WorktreeConfig {
             base_branch: BaseBranch::default(),
             copy: CopyConfig::default(),
             focus_new_branch_names: false,
+            merge: MergeConfig::default(),
         }
     }
 }

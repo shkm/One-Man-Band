@@ -31,14 +31,16 @@ export function emitEvent(eventName: string, payload: unknown) {
 export const defaultTestConfig = {
   main: { command: null, fontFamily: 'Menlo', fontSize: 13, fontLigatures: false, padding: 8 },
   drawer: { fontFamily: 'Menlo', fontSize: 13, fontLigatures: false, padding: 8 },
-  merge: { strategy: 'merge', deleteWorktree: true, deleteLocalBranch: true, deleteRemoteBranch: false },
   navigation: { includeProjects: true },
   indicators: { activityTimeout: 5000, showIdleCheck: true },
   apps: { terminal: 'Terminal', editor: 'VS Code' },
   tasks: [],
   actions: { mergeWorktreeWithConflicts: '' },
   scratch: { startOnLaunch: true },
-  worktree: { focusNewBranchNames: false },
+  worktree: {
+    focusNewBranchNames: false,
+    merge: { strategy: 'merge', deleteWorktree: true, deleteLocalBranch: true, deleteRemoteBranch: false },
+  },
   unfocusedOpacity: 1,
 };
 
