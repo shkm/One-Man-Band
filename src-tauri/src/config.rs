@@ -18,8 +18,42 @@ pub struct ConfigResult {
     pub errors: Vec<ConfigError>,
 }
 
+/// Raw config as stored in JSON (drawer has optional fields)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
+pub struct RawConfig {
+    pub main: MainConfig,
+    pub drawer: RawDrawerConfig,
+    pub apps: AppsConfig,
+    pub worktree: WorktreeConfig,
+    pub navigation: NavigationConfig,
+    pub indicators: IndicatorsConfig,
+    pub tasks: Vec<TaskConfig>,
+    pub actions: ActionsConfig,
+    pub scratch: ScratchConfig,
+    #[serde(rename = "unfocusedOpacity")]
+    pub unfocused_opacity: f64,
+}
+
+impl Default for RawConfig {
+    fn default() -> Self {
+        Self {
+            main: MainConfig::default(),
+            drawer: RawDrawerConfig::default(),
+            apps: AppsConfig::default(),
+            worktree: WorktreeConfig::default(),
+            navigation: NavigationConfig::default(),
+            indicators: IndicatorsConfig::default(),
+            tasks: Vec::new(),
+            actions: ActionsConfig::default(),
+            scratch: ScratchConfig::default(),
+            unfocused_opacity: 1.0,
+        }
+    }
+}
+
+/// Resolved config with all values populated
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
     pub main: MainConfig,
     pub drawer: DrawerConfig,
@@ -35,20 +69,27 @@ pub struct Config {
     pub unfocused_opacity: f64,
 }
 
+impl Config {
+    /// Resolve a RawConfig into a Config by inheriting drawer values from main
+    pub fn from_raw(raw: RawConfig) -> Self {
+        Self {
+            drawer: DrawerConfig::from_raw(&raw.drawer, &raw.main),
+            main: raw.main,
+            apps: raw.apps,
+            worktree: raw.worktree,
+            navigation: raw.navigation,
+            indicators: raw.indicators,
+            tasks: raw.tasks,
+            actions: raw.actions,
+            scratch: raw.scratch,
+            unfocused_opacity: raw.unfocused_opacity,
+        }
+    }
+}
+
 impl Default for Config {
     fn default() -> Self {
-        Self {
-            main: MainConfig::default(),
-            drawer: DrawerConfig::default(),
-            apps: AppsConfig::default(),
-            worktree: WorktreeConfig::default(),
-            navigation: NavigationConfig::default(),
-            indicators: IndicatorsConfig::default(),
-            tasks: Vec::new(),
-            actions: ActionsConfig::default(),
-            scratch: ScratchConfig::default(),
-            unfocused_opacity: 1.0,
-        }
+        Self::from_raw(RawConfig::default())
     }
 }
 
@@ -344,8 +385,21 @@ impl Default for CopyConfig {
     }
 }
 
+/// Raw drawer config as stored in JSON (fields optional, inherit from main)
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct RawDrawerConfig {
+    #[serde(rename = "fontFamily", skip_serializing_if = "Option::is_none")]
+    pub font_family: Option<String>,
+    #[serde(rename = "fontSize", skip_serializing_if = "Option::is_none")]
+    pub font_size: Option<u16>,
+    #[serde(rename = "fontLigatures", skip_serializing_if = "Option::is_none")]
+    pub font_ligatures: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub padding: Option<u16>,
+}
+
+/// Resolved drawer config with all fields populated (inherits from main)
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(default)]
 pub struct DrawerConfig {
     #[serde(rename = "fontFamily")]
     pub font_family: String,
@@ -355,6 +409,18 @@ pub struct DrawerConfig {
     pub font_ligatures: bool,
     /// Padding around the terminal content in pixels
     pub padding: u16,
+}
+
+impl DrawerConfig {
+    /// Resolve drawer config by inheriting missing values from main config
+    pub fn from_raw(raw: &RawDrawerConfig, main: &MainConfig) -> Self {
+        Self {
+            font_family: raw.font_family.clone().unwrap_or_else(|| main.font_family.clone()),
+            font_size: raw.font_size.unwrap_or(main.font_size),
+            font_ligatures: raw.font_ligatures.unwrap_or(main.font_ligatures),
+            padding: raw.padding.unwrap_or(main.padding),
+        }
+    }
 }
 
 impl Default for DrawerConfig {
@@ -570,8 +636,9 @@ pub fn load_config_with_errors(project_path: Option<&str>) -> ConfigResult {
         }
     }
 
-    // Deserialize merged config, falling back to defaults
-    let config = serde_json::from_value(merged).unwrap_or_default();
+    // Deserialize merged config as RawConfig, then resolve to Config
+    let raw_config: RawConfig = serde_json::from_value(merged).unwrap_or_default();
+    let config = Config::from_raw(raw_config);
 
     ConfigResult { config, errors }
 }

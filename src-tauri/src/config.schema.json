@@ -47,31 +47,27 @@
     },
     "drawer": {
       "type": "object",
-      "description": "Configuration for drawer terminals (shell tabs)",
+      "description": "Configuration for drawer terminals. All properties are optional and inherit from 'main' if not specified.",
       "properties": {
         "fontFamily": {
           "type": "string",
-          "description": "Font family for drawer terminals",
-          "default": "Menlo, Monaco, 'Courier New', monospace"
+          "description": "Font family for drawer terminals. Inherits from main if not specified."
         },
         "fontSize": {
           "type": "integer",
-          "description": "Font size in points for drawer terminals",
+          "description": "Font size in points for drawer terminals. Inherits from main if not specified.",
           "minimum": 6,
-          "maximum": 72,
-          "default": 13
+          "maximum": 72
         },
         "fontLigatures": {
           "type": "boolean",
-          "description": "Enable font ligatures (disables WebGL rendering)",
-          "default": false
+          "description": "Enable font ligatures (disables WebGL rendering). Inherits from main if not specified."
         },
         "padding": {
           "type": "integer",
-          "description": "Padding around the terminal content in pixels",
+          "description": "Padding around the terminal content in pixels. Inherits from main if not specified.",
           "minimum": 0,
-          "maximum": 64,
-          "default": 8
+          "maximum": 64
         }
       },
       "additionalProperties": false

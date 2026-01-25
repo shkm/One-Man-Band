@@ -13,13 +13,9 @@
     "padding": 8
   },
 
-  "drawer": {
-    "fontFamily": "Menlo, Monaco, 'Courier New', monospace",
-    "fontSize": 13,
-    "fontLigatures": false,
-    // Padding around the terminal content in pixels
-    "padding": 8
-  },
+  // Drawer terminal configuration. Properties inherit from "main" if not specified:
+  // fontFamily, fontSize, fontLigatures, padding
+  "drawer": {},
 
   // External applications to open directories with
   "apps": {
