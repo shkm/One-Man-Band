@@ -22,7 +22,7 @@ pub struct ConfigResult {
 #[serde(default)]
 pub struct Config {
     pub main: MainConfig,
-    pub terminal: TerminalConfig,
+    pub drawer: DrawerConfig,
     pub apps: AppsConfig,
     pub worktree: WorktreeConfig,
     pub merge: MergeConfig,
@@ -40,7 +40,7 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             main: MainConfig::default(),
-            terminal: TerminalConfig::default(),
+            drawer: DrawerConfig::default(),
             apps: AppsConfig::default(),
             worktree: WorktreeConfig::default(),
             merge: MergeConfig::default(),
@@ -344,7 +344,7 @@ impl Default for CopyConfig {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
-pub struct TerminalConfig {
+pub struct DrawerConfig {
     #[serde(rename = "fontFamily")]
     pub font_family: String,
     #[serde(rename = "fontSize")]
@@ -355,7 +355,7 @@ pub struct TerminalConfig {
     pub padding: u16,
 }
 
-impl Default for TerminalConfig {
+impl Default for DrawerConfig {
     fn default() -> Self {
         Self {
             font_family: "Menlo, Monaco, 'Courier New', monospace".to_string(),

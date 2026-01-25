@@ -30,7 +30,7 @@ export function emitEvent(eventName: string, payload: unknown) {
 // Tests can override specific values as needed
 export const defaultTestConfig = {
   main: { command: null, fontFamily: 'Menlo', fontSize: 13, fontLigatures: false, padding: 8 },
-  terminal: { fontFamily: 'Menlo', fontSize: 13, fontLigatures: false, padding: 8 },
+  drawer: { fontFamily: 'Menlo', fontSize: 13, fontLigatures: false, padding: 8 },
   merge: { strategy: 'merge', deleteWorktree: true, deleteLocalBranch: true, deleteRemoteBranch: false },
   navigation: { includeProjects: true },
   indicators: { activityTimeout: 5000, showIdleCheck: true },

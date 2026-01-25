@@ -1119,9 +1119,9 @@ function App() {
   }), [config.main, mainZoom]);
 
   const drawerTerminalConfig = useMemo(() => ({
-    ...config.terminal,
-    fontSize: config.terminal.fontSize + (drawerZoom * ZOOM_STEP),
-  }), [config.terminal, drawerZoom]);
+    ...config.drawer,
+    fontSize: config.drawer.fontSize + (drawerZoom * ZOOM_STEP),
+  }), [config.drawer, drawerZoom]);
 
   // Task handlers
   const handleSelectTask = useCallback((taskName: string) => {

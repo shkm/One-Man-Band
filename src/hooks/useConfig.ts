@@ -3,12 +3,16 @@ import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { MergeStrategy } from '../types';
 
+/** Shared terminal display configuration used by both main and drawer terminals */
 export interface TerminalConfig {
   fontFamily: string;
   fontSize: number;
   fontLigatures: boolean;
   padding: number;
 }
+
+/** Drawer-specific configuration (same as TerminalConfig) */
+export type DrawerConfig = TerminalConfig;
 
 export interface MainConfig extends TerminalConfig {
   /** Command to run in the main terminal pane. If null, spawns user's shell. */
@@ -64,7 +68,7 @@ export interface WorktreeConfig {
 
 export interface Config {
   main: MainConfig;
-  terminal: TerminalConfig;
+  drawer: DrawerConfig;
   apps: AppsConfig;
   merge: MergeConfig;
   navigation: NavigationConfig;
@@ -97,7 +101,7 @@ const defaultConfig: Config = {
     fontLigatures: false,
     padding: 8,
   },
-  terminal: {
+  drawer: {
     fontFamily: "Menlo, Monaco, 'Courier New', monospace",
     fontSize: 13,
     fontLigatures: false,

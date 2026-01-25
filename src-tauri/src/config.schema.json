@@ -45,7 +45,7 @@
       },
       "additionalProperties": false
     },
-    "terminal": {
+    "drawer": {
       "type": "object",
       "description": "Configuration for drawer terminals (shell tabs)",
       "properties": {
