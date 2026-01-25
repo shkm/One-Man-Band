@@ -2136,6 +2136,11 @@ function App() {
       }
     },
     onAddDrawerTab: handleAddDrawerTab,
+    onSelectDrawerTab: (index: number) => {
+      if (isDrawerOpen && index < activeDrawerTabs.length) {
+        handleSelectDrawerTab(activeDrawerTabs[index].id);
+      }
+    },
 
     // Scratch actions
     onCloseScratch: () => activeScratchId && handleCloseScratch(activeScratchId),
@@ -2158,6 +2163,14 @@ function App() {
     onNavigatePrev: () => actionHandlers.worktreePrev?.(),
     onNavigateNext: () => actionHandlers.worktreeNext?.(),
     onNavigateBack: handleSwitchToPreviousView,
+    onNavigateToProject: () => {
+      // Switch from worktree/scratch to project view
+      if ((activeWorktreeId || activeScratchId) && activeProjectId) {
+        setPreviousView({ worktreeId: activeWorktreeId, projectId: activeProjectId, scratchId: activeScratchId });
+        setActiveWorktreeId(null);
+        setActiveScratchId(null);
+      }
+    },
     onNavigateToEntity: (index: number) => selectEntityAtIndex(index),
 
     // Focus actions
@@ -2261,8 +2274,7 @@ function App() {
     resolveKeyEvent, contextActionHandlers,
   ]);
 
-  // Modifier key tracking and hardcoded shortcuts
-  // (Most shortcuts are handled by the context-aware system in useMappings)
+  // Modifier key tracking (for UI feedback like showing shortcut numbers in sidebar)
   useEffect(() => {
     const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
 
@@ -2271,64 +2283,9 @@ function App() {
       if ((isMac && e.metaKey) || (!isMac && e.ctrlKey)) {
         setIsModifierKeyHeld(true);
       }
-
       // Track Ctrl key separately for drawer tab shortcuts
       if (e.ctrlKey) {
         setIsCtrlKeyHeld(true);
-      }
-
-      // When a picker is open, don't process hardcoded shortcuts
-      if (isPickerOpenRef.current) {
-        return;
-      }
-
-      // Ctrl+1-9 to select drawer tabs (when drawer is open)
-      if (e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey && isDrawerOpen && activeDrawerTabs.length > 0) {
-        const digit = parseInt(e.key, 10);
-        if (digit >= 1 && digit <= 9) {
-          const tabIndex = digit - 1;
-          if (tabIndex < activeDrawerTabs.length) {
-            e.preventDefault();
-            handleSelectDrawerTab(activeDrawerTabs[tabIndex].id);
-            return;
-          }
-        }
-      }
-
-      // Cmd+0: Switch from worktree/scratch to project view (hardcoded, not configurable)
-      if ((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && e.key === '0' && (activeWorktreeId || activeScratchId) && activeProjectId) {
-        e.preventDefault();
-        // Save current view as previous before switching
-        setPreviousView({ worktreeId: activeWorktreeId, projectId: activeProjectId, scratchId: activeScratchId });
-        setActiveWorktreeId(null);
-        setActiveScratchId(null);
-        return;
-      }
-
-      // Cmd+T to add new terminal tab (when drawer is open)
-      if ((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && e.key === 't' && isDrawerOpen && activeEntityId) {
-        e.preventDefault();
-        handleAddDrawerTab();
-        return;
-      }
-
-      // Ctrl+Tab / Ctrl+Shift+Tab to cycle through drawer tabs (when drawer is open and focused)
-      if (e.ctrlKey && e.key === 'Tab' && isDrawerOpen && activeFocusState === 'drawer' && activeDrawerTabs.length > 1) {
-        e.preventDefault();
-        e.stopPropagation();
-        const currentIndex = activeDrawerTabs.findIndex(tab => tab.id === activeDrawerTabId);
-        if (currentIndex !== -1) {
-          let nextIndex: number;
-          if (e.shiftKey) {
-            // Ctrl+Shift+Tab: previous tab
-            nextIndex = currentIndex === 0 ? activeDrawerTabs.length - 1 : currentIndex - 1;
-          } else {
-            // Ctrl+Tab: next tab
-            nextIndex = currentIndex === activeDrawerTabs.length - 1 ? 0 : currentIndex + 1;
-          }
-          handleSelectDrawerTab(activeDrawerTabs[nextIndex].id);
-        }
-        return;
       }
     };
 
@@ -2337,7 +2294,6 @@ function App() {
       if ((isMac && e.key === 'Meta') || (!isMac && e.key === 'Control')) {
         setIsModifierKeyHeld(false);
       }
-      // Clear Ctrl key state when released
       if (e.key === 'Control') {
         setIsCtrlKeyHeld(false);
       }
@@ -2349,16 +2305,15 @@ function App() {
       setIsCtrlKeyHeld(false);
     };
 
-    // Use capture phase so shortcuts are handled before terminal consumes events
-    window.addEventListener('keydown', handleKeyDown, true);
+    window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
     window.addEventListener('blur', handleBlur);
     return () => {
-      window.removeEventListener('keydown', handleKeyDown, true);
+      window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
       window.removeEventListener('blur', handleBlur);
     };
-  }, [activeWorktreeId, activeProjectId, activeScratchId, activeEntityId, isDrawerOpen, activeDrawerTabs, activeDrawerTabId, activeFocusState, handleSelectDrawerTab, handleAddDrawerTab]);
+  }, []);
 
   // Listen for menu bar actions from the backend
   useEffect(() => {

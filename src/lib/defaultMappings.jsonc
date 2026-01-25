@@ -64,6 +64,7 @@
         // Navigation
         "cmd-k": "navigate::prev",
         "cmd-j": "navigate::next",
+        "cmd-0": "navigate::toProject",
         "cmd-1": "navigate::toEntity1",
         "cmd-2": "navigate::toEntity2",
         "cmd-3": "navigate::toEntity3",
@@ -81,6 +82,25 @@
     },
 
     // ============================================================
+    // Drawer open (select tabs by number, new tab)
+    // ============================================================
+    {
+      "context": "drawerOpen && !pickerOpen && !modalOpen",
+      "bindings": {
+        "cmd-t": "drawer::newTab",
+        "ctrl-1": "drawer::selectTab1",
+        "ctrl-2": "drawer::selectTab2",
+        "ctrl-3": "drawer::selectTab3",
+        "ctrl-4": "drawer::selectTab4",
+        "ctrl-5": "drawer::selectTab5",
+        "ctrl-6": "drawer::selectTab6",
+        "ctrl-7": "drawer::selectTab7",
+        "ctrl-8": "drawer::selectTab8",
+        "ctrl-9": "drawer::selectTab9"
+      }
+    },
+
+    // ============================================================
     // Drawer focused
     // ============================================================
     {
@@ -88,7 +108,9 @@
       "bindings": {
         "cmd-w": "drawer::closeTab",
         "cmd-h": "drawer::prevTab",
-        "cmd-l": "drawer::nextTab"
+        "cmd-l": "drawer::nextTab",
+        "ctrl-Tab": "drawer::nextTab",
+        "ctrl-shift-Tab": "drawer::prevTab"
       }
     },
 

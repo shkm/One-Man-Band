@@ -31,6 +31,7 @@ export interface ActionHandlerCallbacks {
   onPrevDrawerTab: () => void;
   onNextDrawerTab: () => void;
   onAddDrawerTab: () => void;
+  onSelectDrawerTab: (index: number) => void;
 
   // Scratch actions
   onCloseScratch: () => void;
@@ -49,6 +50,7 @@ export interface ActionHandlerCallbacks {
   onNavigateNext: () => void;
   onNavigateBack: () => void;
   onNavigateToEntity: (index: number) => void;
+  onNavigateToProject: () => void;
 
   // Focus actions
   onSwitchFocus: () => void;
@@ -91,6 +93,15 @@ export function createActionHandlers(callbacks: ActionHandlerCallbacks): ActionH
     'drawer::prevTab': callbacks.onPrevDrawerTab,
     'drawer::nextTab': callbacks.onNextDrawerTab,
     'drawer::newTab': callbacks.onAddDrawerTab,
+    'drawer::selectTab1': () => callbacks.onSelectDrawerTab(0),
+    'drawer::selectTab2': () => callbacks.onSelectDrawerTab(1),
+    'drawer::selectTab3': () => callbacks.onSelectDrawerTab(2),
+    'drawer::selectTab4': () => callbacks.onSelectDrawerTab(3),
+    'drawer::selectTab5': () => callbacks.onSelectDrawerTab(4),
+    'drawer::selectTab6': () => callbacks.onSelectDrawerTab(5),
+    'drawer::selectTab7': () => callbacks.onSelectDrawerTab(6),
+    'drawer::selectTab8': () => callbacks.onSelectDrawerTab(7),
+    'drawer::selectTab9': () => callbacks.onSelectDrawerTab(8),
 
     // Scratch actions
     'scratch::close': callbacks.onCloseScratch,
@@ -108,6 +119,7 @@ export function createActionHandlers(callbacks: ActionHandlerCallbacks): ActionH
     'navigate::prev': callbacks.onNavigatePrev,
     'navigate::next': callbacks.onNavigateNext,
     'navigate::back': callbacks.onNavigateBack,
+    'navigate::toProject': callbacks.onNavigateToProject,
     'navigate::toEntity1': () => callbacks.onNavigateToEntity(0),
     'navigate::toEntity2': () => callbacks.onNavigateToEntity(1),
     'navigate::toEntity3': () => callbacks.onNavigateToEntity(2),
