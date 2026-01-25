@@ -227,6 +227,153 @@ export function getActiveBindings(
 }
 
 // ============================================================
+// Action to Key Lookup (for UI display)
+// ============================================================
+
+/**
+ * Info about a key binding for an action
+ */
+export interface ActionKeyInfo {
+  key: string;
+  context: string | null;
+}
+
+/**
+ * Get the primary key binding for an action.
+ *
+ * This searches through all bindings and returns the first key that
+ * triggers the given action. Prefers global bindings (no context)
+ * over context-specific ones.
+ *
+ * Used for displaying shortcuts in UI (command palette, menus).
+ *
+ * @param actionId - Action to find key for (e.g., "drawer::toggle")
+ * @param mappings - Parsed mappings to search
+ * @returns Key info or null if no binding found
+ */
+export function getKeyForAction(
+  actionId: ActionId,
+  mappings: ParsedMappings
+): ActionKeyInfo | null {
+  let globalMatch: ActionKeyInfo | null = null;
+  let contextMatch: ActionKeyInfo | null = null;
+
+  // Search through all groups
+  for (const group of mappings.groups) {
+    for (const [key, action] of group.bindings) {
+      // Check if this binding is for our action
+      const boundActionId = Array.isArray(action) ? action[0] : action;
+      if (boundActionId === actionId) {
+        const info: ActionKeyInfo = {
+          key,
+          context: group.context?.source ?? null,
+        };
+
+        if (!group.context) {
+          // Global binding - prefer this
+          globalMatch = info;
+        } else if (!contextMatch) {
+          // First context-specific match
+          contextMatch = info;
+        }
+      }
+    }
+  }
+
+  // Prefer global, fall back to context-specific
+  return globalMatch ?? contextMatch;
+}
+
+/**
+ * Get all key bindings for an action across all contexts.
+ *
+ * @param actionId - Action to find keys for
+ * @param mappings - Parsed mappings to search
+ * @returns Array of key info objects
+ */
+export function getAllKeysForAction(
+  actionId: ActionId,
+  mappings: ParsedMappings
+): ActionKeyInfo[] {
+  const results: ActionKeyInfo[] = [];
+
+  for (const group of mappings.groups) {
+    for (const [key, action] of group.bindings) {
+      const boundActionId = Array.isArray(action) ? action[0] : action;
+      if (boundActionId === actionId) {
+        results.push({
+          key,
+          context: group.context?.source ?? null,
+        });
+      }
+    }
+  }
+
+  return results;
+}
+
+// ============================================================
+// Key Display Formatting
+// ============================================================
+
+const isMac = typeof navigator !== 'undefined' &&
+  navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+
+/** Map of modifier/key names to display symbols */
+const KEY_DISPLAY_MAP: Record<string, string> = {
+  cmd: isMac ? '⌘' : 'Ctrl',
+  ctrl: isMac ? '⌃' : 'Ctrl',
+  alt: isMac ? '⌥' : 'Alt',
+  shift: isMac ? '⇧' : 'Shift',
+  escape: 'Esc',
+  space: 'Space',
+  enter: '↵',
+  backspace: '⌫',
+  tab: '⇥',
+  up: '↑',
+  down: '↓',
+  left: '←',
+  right: '→',
+};
+
+/**
+ * Format a key string for display.
+ *
+ * Converts the hyphen-separated format (e.g., "cmd-shift-p")
+ * to a display format (e.g., "⌘⇧P" on Mac, "Ctrl+Shift+P" elsewhere).
+ *
+ * @param keyString - Key string in format "modifier-modifier-key"
+ * @returns Formatted display string
+ */
+export function formatKeyString(keyString: string): string {
+  const parts = keyString.toLowerCase().split('-');
+  const key = parts.pop();
+  const modifiers = parts;
+
+  if (!key) return '';
+
+  const formattedParts: string[] = [];
+
+  // Format modifiers in standard order
+  const modOrder = ['ctrl', 'cmd', 'alt', 'shift'];
+  for (const mod of modOrder) {
+    if (modifiers.includes(mod)) {
+      formattedParts.push(KEY_DISPLAY_MAP[mod] || mod);
+    }
+  }
+
+  // Format key
+  const displayKey = KEY_DISPLAY_MAP[key] || key.toUpperCase();
+  formattedParts.push(displayKey);
+
+  // On Mac, modifiers are typically shown without separators
+  if (isMac) {
+    return formattedParts.join('');
+  }
+  return formattedParts.join('+');
+}
+
+// ============================================================
 // Key Event Conversion
 // ============================================================
 

@@ -102,7 +102,7 @@ function App() {
   const { config, errors: configErrors } = useConfig(activeProjectPath);
 
   // Context-aware keyboard mappings
-  const { resolveKeyEvent } = useMappings();
+  const { resolveKeyEvent, getShortcut } = useMappings();
 
   // Toast notifications
   const { toasts, dismissToast, showError } = useToast();
@@ -2184,9 +2184,8 @@ function App() {
     onToggleTaskSwitcher: handleToggleTaskSwitcher,
     onRunTask: handleToggleTask,
 
-    // Terminal actions
-    onTerminalCopy: () => {}, // Handled by terminal component
-    onTerminalPaste: () => {}, // Handled by terminal component
+    // NOTE: Terminal copy/paste are NOT registered here - they're handled by terminals.
+    // See actionHandlers.ts for explanation.
 
     // Modal actions
     onCloseModal: () => {
@@ -2721,7 +2720,7 @@ function App() {
       {isCommandPaletteOpen && (
         <CommandPalette
           actionContext={actionContext}
-          mappings={config.mappings}
+          getShortcut={getShortcut}
           tasks={config.tasks}
           projects={projects}
           scratchTerminals={scratchTerminals}

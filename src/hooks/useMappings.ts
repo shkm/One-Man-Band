@@ -12,10 +12,13 @@ import {
   parseMappings,
   resolveBinding,
   keyEventToString,
+  getKeyForAction,
+  formatKeyString,
   type ParsedMappings,
   type ResolvedBinding,
   type RawMappings,
   type ActionId,
+  type ActionKeyInfo,
 } from '../lib/mappings';
 import { getActiveContexts, type ActiveContexts, type ContextState } from '../lib/contexts';
 
@@ -50,6 +53,9 @@ interface UseMappingsReturn {
 
   /** Resolve a key string to an action */
   resolveKey: (key: string, contexts: ActiveContexts) => ResolvedBinding | null;
+
+  /** Get the primary key binding for an action (for display) */
+  getShortcut: (actionId: ActionId) => string | null;
 
   /** Get active contexts from state */
   getContexts: (state: ContextState) => ActiveContexts;
@@ -149,11 +155,23 @@ export function useMappings(): UseMappingsReturn {
     [parsedMappings]
   );
 
+  // Get the formatted shortcut for an action (for display)
+  const getShortcut = useCallback(
+    (actionId: ActionId): string | null => {
+      if (!parsedMappings) return null;
+      const keyInfo = getKeyForAction(actionId, parsedMappings);
+      if (!keyInfo) return null;
+      return formatKeyString(keyInfo.key);
+    },
+    [parsedMappings]
+  );
+
   return {
     loading,
     errors,
     resolveKeyEvent,
     resolveKey,
+    getShortcut,
     getContexts: getActiveContexts,
     reload: loadMappings,
   };

@@ -5,6 +5,9 @@ import {
   mergeMappings,
   resolveBinding,
   getActiveBindings,
+  getKeyForAction,
+  getAllKeysForAction,
+  formatKeyString,
   keyEventToString,
   isValidActionId,
   parseActionId,
@@ -381,5 +384,112 @@ describe('validateMappings', () => {
       bindings: [{ bindings: { 'cmd-1': [] } }],
     };
     expect(validateMappings(invalid).valid).toBe(false);
+  });
+});
+
+describe('getKeyForAction', () => {
+  it('returns key for a global binding', () => {
+    const mappings = parseMappings({
+      bindings: [
+        { bindings: { 'cmd-shift-p': 'palette::toggle' } },
+      ],
+    });
+
+    const result = getKeyForAction('palette::toggle', mappings);
+    expect(result).not.toBeNull();
+    expect(result?.key).toBe('cmd-shift-p');
+    expect(result?.context).toBeNull();
+  });
+
+  it('returns key for a context-specific binding', () => {
+    const mappings = parseMappings({
+      bindings: [
+        {
+          context: 'drawerFocused',
+          bindings: { 'cmd-w': 'drawer::closeTab' },
+        },
+      ],
+    });
+
+    const result = getKeyForAction('drawer::closeTab', mappings);
+    expect(result?.key).toBe('cmd-w');
+    expect(result?.context).toBe('drawerFocused');
+  });
+
+  it('prefers global binding over context-specific', () => {
+    const mappings = parseMappings({
+      bindings: [
+        { bindings: { 'cmd-t': 'drawer::toggle' } },
+        {
+          context: 'drawerFocused',
+          bindings: { 'ctrl-`': 'drawer::toggle' },
+        },
+      ],
+    });
+
+    const result = getKeyForAction('drawer::toggle', mappings);
+    expect(result?.key).toBe('cmd-t');
+    expect(result?.context).toBeNull();
+  });
+
+  it('returns null for unknown action', () => {
+    const mappings = parseMappings({
+      bindings: [{ bindings: { 'cmd-w': 'scratch::close' } }],
+    });
+
+    const result = getKeyForAction('unknown::action', mappings);
+    expect(result).toBeNull();
+  });
+});
+
+describe('getAllKeysForAction', () => {
+  it('returns all keys for an action', () => {
+    const mappings = parseMappings({
+      bindings: [
+        { bindings: { 'cmd-n': 'scratch::new' } },
+        {
+          context: 'scratchFocused',
+          bindings: { 'cmd-shift-n': 'scratch::new' },
+        },
+      ],
+    });
+
+    const results = getAllKeysForAction('scratch::new', mappings);
+    expect(results).toHaveLength(2);
+    expect(results.map((r) => r.key)).toContain('cmd-n');
+    expect(results.map((r) => r.key)).toContain('cmd-shift-n');
+  });
+
+  it('returns empty array for unknown action', () => {
+    const mappings = parseMappings({
+      bindings: [{ bindings: { 'cmd-w': 'scratch::close' } }],
+    });
+
+    const results = getAllKeysForAction('unknown::action', mappings);
+    expect(results).toHaveLength(0);
+  });
+});
+
+describe('formatKeyString', () => {
+  // Note: Tests assume Mac platform (mocked in setup.ts)
+  it('formats simple key', () => {
+    expect(formatKeyString('w')).toBe('W');
+  });
+
+  it('formats key with cmd modifier', () => {
+    expect(formatKeyString('cmd-w')).toBe('⌘W');
+  });
+
+  it('formats key with multiple modifiers', () => {
+    expect(formatKeyString('cmd-shift-p')).toBe('⌘⇧P');
+  });
+
+  it('formats special keys', () => {
+    expect(formatKeyString('escape')).toBe('Esc');
+    expect(formatKeyString('cmd-escape')).toBe('⌘Esc');
+  });
+
+  it('handles ctrl modifier', () => {
+    expect(formatKeyString('ctrl-`')).toBe('⌃`');
   });
 });

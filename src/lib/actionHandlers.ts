@@ -69,9 +69,9 @@ export interface ActionHandlerCallbacks {
   onToggleTaskSwitcher: () => void;
   onRunTask: () => void;
 
-  // Terminal actions
-  onTerminalCopy: () => void;
-  onTerminalPaste: () => void;
+  // NOTE: Terminal copy/paste are intentionally NOT in this interface.
+  // They are handled directly by terminal components via xterm's key handler.
+  // Including them here would prevent events from reaching the terminal.
 
   // Modal actions
   onCloseModal: () => void;
@@ -136,9 +136,10 @@ export function createActionHandlers(callbacks: ActionHandlerCallbacks): ActionH
     'task::switcher': callbacks.onToggleTaskSwitcher,
     'task::run': callbacks.onRunTask,
 
-    // Terminal actions
-    'terminal::copy': callbacks.onTerminalCopy,
-    'terminal::paste': callbacks.onTerminalPaste,
+    // NOTE: Terminal copy/paste are NOT registered here.
+    // They are handled by terminal components via xterm's attachCustomKeyEventHandler.
+    // If we registered empty handlers here, executeAction would return true,
+    // the event would be prevented, and terminals would never receive the keypress.
 
     // Modal actions
     'modal::close': callbacks.onCloseModal,

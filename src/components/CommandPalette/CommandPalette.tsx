@@ -14,9 +14,29 @@ import {
   ACTION_METADATA,
   getAvailablePaletteActions,
 } from '../../lib/actions';
-import { formatShortcut } from '../../lib/keyboard';
-import type { MappingsConfig, TaskConfig } from '../../hooks/useConfig';
+import type { TaskConfig } from '../../hooks/useConfig';
 import type { Project, ScratchTerminal } from '../../types';
+import type { ActionId as MappingsActionId } from '../../lib/mappings';
+
+/** Maps old action IDs to new namespaced action IDs for shortcut lookup */
+const OLD_TO_NEW_ACTION: Partial<Record<ActionId, MappingsActionId>> = {
+  toggleDrawer: 'drawer::toggle',
+  expandDrawer: 'drawer::expand',
+  toggleRightPanel: 'rightPanel::toggle',
+  commandPalette: 'palette::toggle',
+  worktreePrev: 'navigate::prev',
+  worktreeNext: 'navigate::next',
+  previousView: 'navigate::back',
+  switchFocus: 'focus::switch',
+  zoomIn: 'view::zoomIn',
+  zoomOut: 'view::zoomOut',
+  zoomReset: 'view::zoomReset',
+  runTask: 'task::run',
+  taskSwitcher: 'task::switcher',
+  newWorktree: 'worktree::new',
+  newScratchTerminal: 'scratch::new',
+  renameBranch: 'worktree::renameBranch',
+};
 
 const isMac = typeof navigator !== 'undefined' && navigator.platform.toUpperCase().includes('MAC');
 
@@ -45,7 +65,8 @@ function getItemLabel(item: PaletteItem): string {
 
 interface CommandPaletteProps {
   actionContext: ActionContext;
-  mappings: MappingsConfig;
+  /** Get formatted shortcut for a namespaced action ID */
+  getShortcut: (actionId: MappingsActionId) => string | null;
   tasks: TaskConfig[];
   projects: Project[];
   scratchTerminals: ScratchTerminal[];
@@ -60,7 +81,7 @@ interface CommandPaletteProps {
 
 export function CommandPalette({
   actionContext,
-  mappings,
+  getShortcut,
   tasks,
   projects,
   scratchTerminals,
@@ -83,12 +104,16 @@ export function CommandPalette({
     for (const actionId of availableActions) {
       const meta = ACTION_METADATA[actionId];
       let shortcut: string | undefined;
-      if (meta.shortcutKey) {
-        const shortcutConfig = mappings[meta.shortcutKey];
-        if (shortcutConfig) {
-          shortcut = formatShortcut(shortcutConfig);
+
+      // Look up shortcut using the new namespaced action ID
+      const newActionId = OLD_TO_NEW_ACTION[actionId];
+      if (newActionId) {
+        const formatted = getShortcut(newActionId);
+        if (formatted) {
+          shortcut = formatted;
         }
       }
+
       items.push({ type: 'action', id: actionId, label: meta.label, shortcut });
     }
 
@@ -129,7 +154,7 @@ export function CommandPalette({
     }
 
     return items;
-  }, [actionContext, mappings, tasks, projects, scratchTerminals, openEntitiesInOrder]);
+  }, [actionContext, getShortcut, tasks, projects, scratchTerminals, openEntitiesInOrder]);
 
   // Filter items by query (searches the full display label)
   const filteredItems = useMemo(() => {

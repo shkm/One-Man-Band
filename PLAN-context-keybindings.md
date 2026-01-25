@@ -253,7 +253,7 @@ Examples:
 - [x] `src/lib/defaultMappings.jsonc` - Default keybindings
 - [x] `schemas/mappings.schema.json` - JSON Schema
 - [x] `src/lib/mappings.ts` - Types and resolution
-- [x] `src/lib/mappings.test.ts` - 31 tests
+- [x] `src/lib/mappings.test.ts` - 42 tests
 - [ ] `src-tauri/src/mappings.rs` - Backend loading (Phase 2b)
 
 **Tasks:**
@@ -280,19 +280,35 @@ Examples:
 4. ⏳ Update menu bar to use new action names (deferred)
 5. ✅ Integration tests (171 passing)
 
-### Phase 4: Migration & Cleanup
+### Phase 4: Migration & Cleanup 🔄 IN PROGRESS
 
 **Files:**
-- [ ] `src/hooks/useConfig.ts` - Remove `MappingsConfig`
-- [ ] `src-tauri/src/config.rs` - Remove mappings from struct
-- [ ] `src-tauri/src/default_config.jsonc` - Remove mappings section
+- [x] `src/lib/actionHandlers.ts` - Fixed terminal copy/paste (removed empty handlers)
+- [x] `src/lib/mappings.ts` - Added `getKeyForAction()`, `formatKeyString()`
+- [x] `src/hooks/useMappings.ts` - Added `getShortcut()` for UI display
+- [x] `src/components/CommandPalette/CommandPalette.tsx` - Now uses new mappings for shortcuts
+- [ ] `src/hooks/useConfig.ts` - Remove `MappingsConfig` (blocked by terminal usage)
+- [ ] `src-tauri/src/config.rs` - Remove mappings from struct (blocked)
+- [ ] `src-tauri/src/default_config.jsonc` - Remove mappings section (blocked)
 
-**Tasks:**
-1. Remove old `MappingsConfig` interface
-2. Remove mappings from Rust config struct
-3. Remove mappings from default_config.jsonc
-4. Add migration warning for users with old mappings
-5. Update documentation
+**Completed Tasks:**
+1. ✅ Fixed terminal copy/paste bug - empty handlers were blocking events
+2. ✅ Added `getKeyForAction()` to look up key bindings for actions
+3. ✅ Added `formatKeyString()` to format keys for display
+4. ✅ Updated CommandPalette to use new mappings for shortcut display
+5. ✅ Tests: 182 passing
+
+**Remaining Tasks (blocked by terminal copy/paste):**
+1. ⏳ Migrate terminal copy/paste to new system
+2. ⏳ Remove old `MappingsConfig` interface
+3. ⏳ Remove mappings from Rust config struct
+4. ⏳ Remove mappings from default_config.jsonc
+5. ⏳ Add migration warning for users with old mappings
+
+**Note:** Terminal components still use old `config.mappings.terminalCopy/Paste` for
+their xterm key handlers. The old and new systems coexist without conflict because
+the new keyboard handler passes through `terminal::copy/paste` actions (no handlers
+registered), allowing events to reach terminal components.
 
 ### Phase 5: Developer Experience
 
