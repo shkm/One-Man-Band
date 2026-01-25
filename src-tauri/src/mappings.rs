@@ -154,11 +154,6 @@ pub fn load_mappings() -> MappingsResult {
     MappingsResult { mappings, errors }
 }
 
-/// Get paths to watch for mappings changes
-pub fn get_mappings_watch_paths() -> Vec<PathBuf> {
-    vec![get_mappings_path()]
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

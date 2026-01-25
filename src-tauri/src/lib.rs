@@ -85,15 +85,35 @@ fn close_project(state: State<'_, Arc<AppState>>, project_id: &str) -> Result<()
 }
 
 #[tauri::command]
-fn touch_project(state: State<'_, Arc<AppState>>, project_id: &str) -> Result<()> {
+fn touch_project(
+    app: AppHandle,
+    state: State<'_, Arc<AppState>>,
+    project_id: &str,
+) -> Result<()> {
+    let worktrees_to_watch: Vec<(String, String)>;
     {
         let mut persisted = state.persisted.write();
         if let Some(project) = persisted.projects.iter_mut().find(|p| p.id == project_id) {
+            let was_inactive = !project.is_active;
             project.last_accessed_at = Some(worktree::chrono_lite_now());
-            // Reactivate project if it was closed
             project.is_active = true;
+
+            // If reactivating, collect worktrees to watch
+            worktrees_to_watch = if was_inactive {
+                project.worktrees.iter().map(|wt| (wt.id.clone(), wt.path.clone())).collect()
+            } else {
+                Vec::new()
+            };
+        } else {
+            worktrees_to_watch = Vec::new();
         }
     }
+
+    // Start watching worktrees outside the lock
+    for (id, path) in worktrees_to_watch {
+        watcher::watch_worktree(app.clone(), id, path);
+    }
+
     state.save().map_err(map_err)?;
     Ok(())
 }
@@ -1534,11 +1554,11 @@ pub fn run() {
             // Set up application menu
             menu::setup_menu(app)?;
 
-            // Start file watchers for all existing worktrees
+            // Start file watchers for worktrees in active projects only
             // This enables detection of externally deleted worktree folders
             let app_state = app.state::<Arc<AppState>>();
             let persisted = app_state.persisted.read();
-            for project in &persisted.projects {
+            for project in persisted.projects.iter().filter(|p| p.is_active) {
                 for wt in &project.worktrees {
                     watcher::watch_worktree(
                         app.handle().clone(),
