@@ -643,4 +643,129 @@ describe('App', () => {
       });
     });
   });
+
+  describe('Command Palette Navigation', () => {
+    it('shows unopened worktrees in command palette', async () => {
+      const worktree = createTestWorktree({ id: 'wt-1', name: 'feature-branch' });
+      const project = createTestProject({
+        id: 'proj-1',
+        name: 'my-project',
+        worktrees: [worktree],
+      });
+      mockInvokeResponses.set('list_projects', [project]);
+      mockInvokeResponses.set('touch_project', null);
+
+      const user = userEvent.setup();
+      render(<App />);
+
+      await waitFor(() => {
+        expect(screen.getByText('my-project')).toBeInTheDocument();
+      }, { timeout: 3000 });
+
+      // Open command palette via menu action
+      await act(async () => {
+        emitEvent('menu-action', 'command_palette');
+      });
+
+      // Command palette should open
+      await waitFor(() => {
+        expect(screen.getByPlaceholderText('Type a command...')).toBeInTheDocument();
+      });
+
+      // Search for the worktree
+      await user.type(screen.getByPlaceholderText('Type a command...'), 'feature-branch');
+
+      // Worktree should appear in results even though it hasn't been opened
+      await waitFor(() => {
+        expect(screen.getByText('Worktree: my-project / feature-branch')).toBeInTheDocument();
+      });
+    });
+
+    it('spawns terminal when selecting unopened worktree from command palette', async () => {
+      const worktree = createTestWorktree({ id: 'wt-1', name: 'feature-branch' });
+      const project = createTestProject({
+        id: 'proj-1',
+        name: 'my-project',
+        worktrees: [worktree],
+      });
+      mockInvokeResponses.set('list_projects', [project]);
+      mockInvokeResponses.set('touch_project', null);
+      mockInvokeResponses.set('spawn_main', 'pty-main-123');
+
+      const user = userEvent.setup();
+      render(<App />);
+
+      await waitFor(() => {
+        expect(screen.getByText('my-project')).toBeInTheDocument();
+      }, { timeout: 3000 });
+
+      // Open command palette
+      await act(async () => {
+        emitEvent('menu-action', 'command_palette');
+      });
+
+      await waitFor(() => {
+        expect(screen.getByPlaceholderText('Type a command...')).toBeInTheDocument();
+      });
+
+      // Search and select the worktree
+      await user.type(screen.getByPlaceholderText('Type a command...'), 'feature-branch');
+
+      await waitFor(() => {
+        expect(screen.getByText('Worktree: my-project / feature-branch')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByText('Worktree: my-project / feature-branch'));
+
+      // Terminal should spawn
+      await waitFor(() => {
+        expect(invokeHistory.some((h) => h.command === 'spawn_main')).toBe(true);
+      }, { timeout: 3000 });
+
+      // Verify it was spawned for the correct worktree
+      const spawnCall = invokeHistory.find((h) => h.command === 'spawn_main');
+      expect(spawnCall?.args).toHaveProperty('worktreeId', 'wt-1');
+    });
+
+    it('spawns project shell when selecting unopened project from command palette', async () => {
+      const project = createTestProject({
+        id: 'proj-1',
+        name: 'my-project',
+        worktrees: [],
+      });
+      mockInvokeResponses.set('list_projects', [project]);
+      mockInvokeResponses.set('touch_project', null);
+      mockInvokeResponses.set('spawn_project_shell', 'pty-proj-123');
+
+      const user = userEvent.setup();
+      render(<App />);
+
+      await waitFor(() => {
+        expect(screen.getByText('my-project')).toBeInTheDocument();
+      }, { timeout: 3000 });
+
+      // Open command palette
+      await act(async () => {
+        emitEvent('menu-action', 'command_palette');
+      });
+
+      await waitFor(() => {
+        expect(screen.getByPlaceholderText('Type a command...')).toBeInTheDocument();
+      });
+
+      // Search and select the project
+      await user.type(screen.getByPlaceholderText('Type a command...'), 'my-project');
+
+      await waitFor(() => {
+        expect(screen.getByText('Project: my-project')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByText('Project: my-project'));
+
+      // Project shell should spawn
+      await waitFor(() => {
+        expect(invokeHistory.some((h) => h.command === 'spawn_project_shell')).toBe(true);
+      }, { timeout: 3000 });
+    });
+  });
 });

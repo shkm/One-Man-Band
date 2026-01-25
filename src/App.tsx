@@ -356,6 +356,26 @@ function App() {
     return [...scratchIds, ...projectAndWorktreeIds];
   }, [scratchTerminals, projects, openProjectIds, openWorktreeIds]);
 
+  // All navigable entities in sidebar order - for command palette navigation
+  // Includes ALL active projects and their worktrees (not just open ones)
+  const navigableEntitiesInOrder = useMemo(() => {
+    const scratchIds = scratchTerminals.map(s => ({ type: 'scratch' as const, id: s.id }));
+
+    // Build project/worktree list in sidebar visual order
+    const projectAndWorktreeIds: Array<{ type: 'project' | 'worktree'; id: string }> = [];
+    for (const project of projects) {
+      if (!project.isActive) continue;
+      // Include all active projects
+      projectAndWorktreeIds.push({ type: 'project' as const, id: project.id });
+      // Include all worktrees from active projects
+      for (const worktree of project.worktrees) {
+        projectAndWorktreeIds.push({ type: 'worktree' as const, id: worktree.id });
+      }
+    }
+
+    return [...scratchIds, ...projectAndWorktreeIds];
+  }, [scratchTerminals, projects]);
+
   // Worktrees with running tasks and their counts (for sidebar indicator)
   const runningTaskCounts = useMemo(() => {
     const counts = new Map<string, number>();
@@ -2296,7 +2316,7 @@ function App() {
           tasks={config.tasks}
           projects={projects}
           scratchTerminals={scratchTerminals}
-          openEntitiesInOrder={openEntitiesInOrder}
+          openEntitiesInOrder={navigableEntitiesInOrder}
           onExecute={(actionId) => actions.execute(actionId)}
           onRunTask={(taskName) => {
             handleSelectTask(taskName);
@@ -2304,20 +2324,20 @@ function App() {
           }}
           onNavigate={(type, id) => {
             if (type === 'scratch') {
-              setActiveWorktreeId(null);
-              setActiveProjectId(null);
-              setActiveScratchId(id);
+              handleSelectScratch(id);
             } else if (type === 'project') {
-              setActiveWorktreeId(null);
-              setActiveScratchId(null);
-              setActiveProjectId(id);
-            } else if (type === 'worktree') {
-              const project = projects.find(p => p.worktrees.some(w => w.id === id));
+              const project = projects.find(p => p.id === id);
               if (project) {
-                setActiveProjectId(project.id);
+                handleSelectProject(project);
               }
-              setActiveWorktreeId(id);
-              setActiveScratchId(null);
+            } else if (type === 'worktree') {
+              for (const project of projects) {
+                const worktree = project.worktrees.find(w => w.id === id);
+                if (worktree) {
+                  handleSelectWorktree(worktree);
+                  break;
+                }
+              }
             }
           }}
           onClose={() => setIsCommandPaletteOpen(false)}
