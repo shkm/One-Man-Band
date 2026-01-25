@@ -20,17 +20,19 @@ import { ProjectSwitcher } from './components/ProjectSwitcher';
 import { useWorktrees } from './hooks/useWorktrees';
 import { useGitStatus } from './hooks/useGitStatus';
 import { useConfig } from './hooks/useConfig';
+import { useScratchTerminals } from './hooks/useScratchTerminals';
+import { useIndicators } from './hooks/useIndicators';
+import { useDrawerTabs } from './hooks/useDrawerTabs';
 import { selectFolder, shutdown, ptyKill, ptyForceKill, stashChanges, stashPop, reorderProjects, reorderWorktrees, expandActionPrompt, ActionPromptContext, updateActionAvailability, touchProject } from './lib/tauri';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { ActionContext, getMenuAvailability } from './lib/actions';
 import { useActions, ActionHandlers } from './hooks/useActions';
 import { arrayMove } from '@dnd-kit/sortable';
-import { sendOsNotification } from './lib/notifications';
 import { useMappings } from './hooks/useMappings';
 import { getActiveContexts, type ContextState } from './lib/contexts';
 import { createActionHandlers, executeAction } from './lib/actionHandlers';
 import { copyFromActiveTerminal, pasteToActiveTerminal } from './lib/terminalRegistry';
-import { Project, Worktree, RunningTask, MergeCompleted, ScratchTerminal } from './types';
+import { Project, Worktree, RunningTask, MergeCompleted } from './types';
 import { ToastContainer } from './components/Toast';
 import { useToast } from './hooks/useToast';
 
@@ -71,15 +73,16 @@ function App() {
   const [activeScratchId, setActiveScratchId] = useState<string | null>(null);
 
   // Scratch terminals - general-purpose terminals not tied to any project
-  const [scratchTerminals, setScratchTerminals] = useState<ScratchTerminal[]>([]);
-  const [scratchTerminalCounter, setScratchTerminalCounter] = useState(0);
-  const [scratchCwds, setScratchCwds] = useState<Map<string, string>>(new Map());
-  const [homeDir, setHomeDir] = useState<string | null>(null);
-
-  // Fetch home directory on mount (used for initial scratch terminal cwd)
-  useEffect(() => {
-    invoke<string>('get_home_dir').then(setHomeDir).catch(() => {});
-  }, []);
+  const {
+    scratchTerminals,
+    scratchCwds,
+    homeDir,
+    addScratchTerminal,
+    closeScratchTerminal,
+    renameScratchTerminal,
+    reorderScratchTerminals,
+    updateScratchCwd,
+  } = useScratchTerminals();
 
   // Open project terminals (main repo shells are kept alive for these)
   const [openProjectIds, setOpenProjectIds] = useState<Set<string>>(new Set());
@@ -120,9 +123,16 @@ function App() {
   const [drawerZoom, setDrawerZoom] = useState(0);
 
   // Per-worktree drawer tab state
-  const [drawerTabs, setDrawerTabs] = useState<Map<string, DrawerTab[]>>(new Map());
-  const [drawerActiveTabIds, setDrawerActiveTabIds] = useState<Map<string, string>>(new Map());
-  const [drawerTabCounters, setDrawerTabCounters] = useState<Map<string, number>>(new Map());
+  const {
+    drawerTabs,
+    drawerActiveTabIds,
+    drawerTabCounters,
+    drawerPtyIds,
+    setDrawerTabs,
+    setDrawerActiveTabIds,
+    setDrawerTabCounters,
+    setDrawerPtyIds,
+  } = useDrawerTabs();
 
   // Per-worktree focus state (which pane has focus)
   const [focusStates, setFocusStates] = useState<Map<string, FocusedPane>>(new Map());
@@ -146,8 +156,6 @@ function App() {
   // Per-worktree running tasks state (supports multiple tasks per worktree)
   const [runningTasks, setRunningTasks] = useState<Map<string, RunningTask[]>>(new Map());
 
-  // Track PTY IDs for drawer terminals (tab ID -> PTY ID)
-  const [drawerPtyIds, setDrawerPtyIds] = useState<Map<string, string>>(new Map());
 
   // Get current project's selected task
   const activeSelectedTask = activeProjectPath ? selectedTasksByProject.get(activeProjectPath) ?? null : null;
@@ -238,12 +246,24 @@ function App() {
   const [isStashing, setIsStashing] = useState(false);
   const [stashError, setStashError] = useState<string | null>(null);
   const [loadingWorktrees, setLoadingWorktrees] = useState<Set<string>>(new Set());
-  const [notifiedWorktreeIds, setNotifiedWorktreeIds] = useState<Set<string>>(new Set());
-  const [thinkingWorktreeIds, setThinkingWorktreeIds] = useState<Set<string>>(new Set());
-  const [idleWorktreeIds, setIdleWorktreeIds] = useState<Set<string>>(new Set());
-  const [notifiedProjectIds, setNotifiedProjectIds] = useState<Set<string>>(new Set());
-  const [thinkingProjectIds, setThinkingProjectIds] = useState<Set<string>>(new Set());
-  const [idleProjectIds, setIdleProjectIds] = useState<Set<string>>(new Set());
+
+  // Indicator states for worktrees and projects
+  const {
+    notifiedWorktreeIds,
+    thinkingWorktreeIds,
+    idleWorktreeIds,
+    notifiedProjectIds,
+    thinkingProjectIds,
+    idleProjectIds,
+    handleWorktreeNotification,
+    handleWorktreeThinkingChange,
+    handleProjectNotification,
+    handleProjectThinkingChange,
+  } = useIndicators({
+    activeWorktreeId,
+    activeProjectId,
+    projects,
+  });
   const [isShuttingDown, setIsShuttingDown] = useState(false);
   const [isModifierKeyHeld, setIsModifierKeyHeld] = useState(false);
   const [isCtrlKeyHeld, setIsCtrlKeyHeld] = useState(false);
@@ -376,16 +396,10 @@ function App() {
   useEffect(() => {
     if (!hasCreatedInitialScratch.current && config.scratch.startOnLaunch && scratchTerminals.length === 0) {
       hasCreatedInitialScratch.current = true;
-      const newScratch: ScratchTerminal = {
-        id: 'scratch-1',
-        name: 'Terminal 1',
-        order: 1,
-      };
-      setScratchTerminals([newScratch]);
-      setScratchTerminalCounter(1);
+      const newScratch = addScratchTerminal();
       setActiveScratchId(newScratch.id);
     }
-  }, [config.scratch.startOnLaunch, scratchTerminals.length]);
+  }, [config.scratch.startOnLaunch, scratchTerminals.length, addScratchTerminal]);
 
   // Persist expanded projects to localStorage
   useEffect(() => {
@@ -569,133 +583,6 @@ function App() {
     dispatchPanelResizeComplete();
   }, [activeEntityId, isRightPanelOpen, dispatchPanelResizeComplete]);
 
-  // Worktree notification handler
-  const handleWorktreeNotification = useCallback((worktreeId: string, title: string, body: string) => {
-    setNotifiedWorktreeIds((prev) => new Set([...prev, worktreeId]));
-    // Only send OS notification if this worktree is not active
-    if (worktreeId !== activeWorktreeId) {
-      // Use worktree name as title if not provided
-      const notificationTitle = title || (() => {
-        for (const project of projects) {
-          const wt = project.worktrees.find(w => w.id === worktreeId);
-          if (wt) return wt.name;
-        }
-        return 'Shellflow';
-      })();
-      sendOsNotification(notificationTitle, body);
-    }
-  }, [activeWorktreeId, projects]);
-
-  // Clear notification and idle state when worktree becomes active
-  useEffect(() => {
-    if (activeWorktreeId) {
-      if (notifiedWorktreeIds.has(activeWorktreeId)) {
-        setNotifiedWorktreeIds((prev) => {
-          const next = new Set(prev);
-          next.delete(activeWorktreeId);
-          return next;
-        });
-      }
-      if (idleWorktreeIds.has(activeWorktreeId)) {
-        setIdleWorktreeIds((prev) => {
-          const next = new Set(prev);
-          next.delete(activeWorktreeId);
-          return next;
-        });
-      }
-    }
-  }, [activeWorktreeId, notifiedWorktreeIds, idleWorktreeIds]);
-
-  // Worktree thinking state handler (for showing loading indicator when Claude is thinking)
-  const handleWorktreeThinkingChange = useCallback((worktreeId: string, isThinking: boolean) => {
-    setThinkingWorktreeIds((prev) => {
-      if (isThinking) {
-        // Clear idle when thinking starts
-        setIdleWorktreeIds((idlePrev) => {
-          if (!idlePrev.has(worktreeId)) return idlePrev;
-          const next = new Set(idlePrev);
-          next.delete(worktreeId);
-          return next;
-        });
-        if (prev.has(worktreeId)) return prev;
-        return new Set([...prev, worktreeId]);
-      } else {
-        // Set idle when thinking stops (only if was thinking)
-        if (prev.has(worktreeId)) {
-          setIdleWorktreeIds((idlePrev) => {
-            if (idlePrev.has(worktreeId)) return idlePrev;
-            return new Set([...idlePrev, worktreeId]);
-          });
-        }
-        if (!prev.has(worktreeId)) return prev;
-        const next = new Set(prev);
-        next.delete(worktreeId);
-        return next;
-      }
-    });
-  }, []);
-
-  // Project notification handler
-  const handleProjectNotification = useCallback((projectId: string, title: string, body: string) => {
-    setNotifiedProjectIds((prev) => new Set([...prev, projectId]));
-    // Only send OS notification if this project is not active (or a worktree is active)
-    if (activeWorktreeId || projectId !== activeProjectId) {
-      const notificationTitle = title || (() => {
-        const project = projects.find(p => p.id === projectId);
-        return project?.name ?? 'Shellflow';
-      })();
-      sendOsNotification(notificationTitle, body);
-    }
-  }, [activeWorktreeId, activeProjectId, projects]);
-
-  // Clear notification and idle state when project becomes active
-  useEffect(() => {
-    if (!activeWorktreeId && activeProjectId) {
-      if (notifiedProjectIds.has(activeProjectId)) {
-        setNotifiedProjectIds((prev) => {
-          const next = new Set(prev);
-          next.delete(activeProjectId);
-          return next;
-        });
-      }
-      if (idleProjectIds.has(activeProjectId)) {
-        setIdleProjectIds((prev) => {
-          const next = new Set(prev);
-          next.delete(activeProjectId);
-          return next;
-        });
-      }
-    }
-  }, [activeWorktreeId, activeProjectId, notifiedProjectIds, idleProjectIds]);
-
-  // Project thinking state handler
-  const handleProjectThinkingChange = useCallback((projectId: string, isThinking: boolean) => {
-    setThinkingProjectIds((prev) => {
-      if (isThinking) {
-        // Clear idle when thinking starts
-        setIdleProjectIds((idlePrev) => {
-          if (!idlePrev.has(projectId)) return idlePrev;
-          const next = new Set(idlePrev);
-          next.delete(projectId);
-          return next;
-        });
-        if (prev.has(projectId)) return prev;
-        return new Set([...prev, projectId]);
-      } else {
-        // Set idle when thinking stops (only if was thinking)
-        if (prev.has(projectId)) {
-          setIdleProjectIds((idlePrev) => {
-            if (idlePrev.has(projectId)) return idlePrev;
-            return new Set([...idlePrev, projectId]);
-          });
-        }
-        if (!prev.has(projectId)) return prev;
-        const next = new Set(prev);
-        next.delete(projectId);
-        return next;
-      }
-    });
-  }, []);
 
   // Sync state when right panel is collapsed/expanded via dragging
   const handleRightPanelResize = useCallback((size: { inPixels: number }) => {
@@ -1606,28 +1493,13 @@ function App() {
 
   // Scratch terminal handlers
   const handleAddScratchTerminal = useCallback(() => {
-    const newCounter = scratchTerminalCounter + 1;
-    const newScratch: ScratchTerminal = {
-      id: `scratch-${newCounter}`,
-      name: `Terminal ${newCounter}`,
-      order: newCounter,
-    };
-    setScratchTerminals((prev) => [...prev, newScratch]);
-    setScratchTerminalCounter(newCounter);
-    // Initialize cwd to home directory
-    if (homeDir) {
-      setScratchCwds((prev) => {
-        const next = new Map(prev);
-        next.set(newScratch.id, homeDir);
-        return next;
-      });
-    }
+    const newScratch = addScratchTerminal();
     // Select the new scratch terminal
     setPreviousView({ worktreeId: activeWorktreeId, projectId: activeProjectId, scratchId: activeScratchId });
     setActiveWorktreeId(null);
     setActiveProjectId(null);
     setActiveScratchId(newScratch.id);
-  }, [scratchTerminalCounter, activeWorktreeId, activeProjectId, activeScratchId, homeDir]);
+  }, [addScratchTerminal, activeWorktreeId, activeProjectId, activeScratchId]);
 
   const handleSelectScratch = useCallback((scratchId: string) => {
     // Save current view as previous before switching
@@ -1640,8 +1512,9 @@ function App() {
   }, [activeWorktreeId, activeProjectId, activeScratchId]);
 
   const handleCloseScratch = useCallback((scratchId: string) => {
-    setScratchTerminals((prev) => prev.filter((s) => s.id !== scratchId));
-    // Clean up drawer tabs, focus state, and cwd for this scratch terminal
+    // Close the scratch terminal (removes from list and cleans up cwd)
+    closeScratchTerminal(scratchId);
+    // Clean up drawer tabs and focus state for this scratch terminal
     setDrawerTabs((prev) => {
       const next = new Map(prev);
       next.delete(scratchId);
@@ -1658,11 +1531,6 @@ function App() {
       return next;
     });
     setFocusStates((prev) => {
-      const next = new Map(prev);
-      next.delete(scratchId);
-      return next;
-    });
-    setScratchCwds((prev) => {
       const next = new Map(prev);
       next.delete(scratchId);
       return next;
@@ -1691,31 +1559,19 @@ function App() {
         setActiveScratchId(null);
       }
     }
-  }, [activeScratchId, scratchTerminals, openWorktreeIds, openProjectIds, projects]);
+  }, [closeScratchTerminal, activeScratchId, scratchTerminals, openWorktreeIds, openProjectIds, projects]);
 
   const handleRenameScratch = useCallback((scratchId: string, newName: string) => {
-    setScratchTerminals((prev) =>
-      prev.map((s) => (s.id === scratchId ? { ...s, name: newName } : s))
-    );
-  }, []);
+    renameScratchTerminal(scratchId, newName);
+  }, [renameScratchTerminal]);
 
   const handleScratchCwdChange = useCallback((scratchId: string, cwd: string) => {
-    setScratchCwds((prev) => {
-      const next = new Map(prev);
-      next.set(scratchId, cwd);
-      return next;
-    });
-  }, []);
+    updateScratchCwd(scratchId, cwd);
+  }, [updateScratchCwd]);
 
   const handleReorderScratchTerminals = useCallback((scratchIds: string[]) => {
-    setScratchTerminals((prev) => {
-      const scratchMap = new Map(prev.map((s) => [s.id, s]));
-      return scratchIds.map((id, index) => ({
-        ...scratchMap.get(id)!,
-        order: index,
-      }));
-    });
-  }, []);
+    reorderScratchTerminals(scratchIds);
+  }, [reorderScratchTerminals]);
 
   // Show confirmation modal before closing a project
   const handleCloseProject = useCallback((projectOrId: Project | string) => {
