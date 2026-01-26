@@ -767,7 +767,7 @@ export function Sidebar({
           <button
             onClick={(e) => {
               const rect = e.currentTarget.getBoundingClientRect();
-              setFolderMenu({ x: rect.left, y: rect.top - 100 });
+              setFolderMenu({ x: rect.left, y: rect.top - 76 });
             }}
             className="h-8 px-2 border-t border-zinc-800 text-xs text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/50 flex items-center w-full transition-colors overflow-hidden"
             title={activePath}
