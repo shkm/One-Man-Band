@@ -26,6 +26,10 @@ export interface MergeConfig {
   deleteRemoteBranch: boolean;
 }
 
+export interface DeleteConfig {
+  deleteBranchWithWorktree: boolean;
+}
+
 export interface NavigationConfig {
   // Reserved for future navigation settings
 }
@@ -64,6 +68,7 @@ export interface ScratchConfig {
 export interface WorktreeConfig {
   focusNewBranchNames: boolean;
   merge: MergeConfig;
+  delete: DeleteConfig;
 }
 
 
@@ -130,6 +135,9 @@ const defaultConfig: Config = {
       deleteWorktree: true,
       deleteLocalBranch: false,
       deleteRemoteBranch: false,
+    },
+    delete: {
+      deleteBranchWithWorktree: true,
     },
   },
   unfocusedOpacity: 1,

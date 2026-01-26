@@ -2612,8 +2612,16 @@ function App() {
     updateActionAvailability(menuAvailability);
   }, [actionContext]);
 
-  const pendingWorktree = pendingDeleteId
-    ? projects.flatMap((p) => p.worktrees).find((w) => w.id === pendingDeleteId)
+  const pendingDeleteInfo = pendingDeleteId
+    ? (() => {
+        for (const project of projects) {
+          const worktree = project.worktrees.find((w) => w.id === pendingDeleteId);
+          if (worktree) {
+            return { worktree, projectPath: project.path };
+          }
+        }
+        return null;
+      })()
     : null;
 
   const pendingMergeInfo = pendingMergeId
@@ -2633,9 +2641,11 @@ function App() {
       {/* Shutdown screen overlay */}
       <ShutdownScreen isVisible={isShuttingDown} />
 
-      {pendingDeleteId && pendingWorktree && (
+      {pendingDeleteInfo && (
         <DeleteWorktreeModal
-          worktree={pendingWorktree}
+          worktree={pendingDeleteInfo.worktree}
+          projectPath={pendingDeleteInfo.projectPath}
+          defaultConfig={config.worktree.delete}
           onClose={() => setPendingDeleteId(null)}
           onDeleteComplete={handleDeleteComplete}
           onModalOpen={onModalOpen}

@@ -10,7 +10,7 @@ mod watcher;
 mod worktree;
 
 use config::MergeStrategy;
-use git::MergeFeasibility;
+use git::{MergeFeasibility, WorktreeDeleteStatus};
 use log::info;
 use serde::{Deserialize, Serialize};
 use state::{AppState, FileChange, Project, Worktree};
@@ -235,10 +235,18 @@ fn delete_worktree(state: State<'_, Arc<AppState>>, worktree_id: &str) -> Result
 }
 
 #[tauri::command]
+fn check_worktree_delete_status(worktree_path: &str, project_path: Option<String>) -> Result<WorktreeDeleteStatus> {
+    let path = Path::new(worktree_path);
+    let cfg = config::load_config_for_project(project_path.as_deref());
+    git::check_worktree_delete_status(path, &cfg.worktree.base_branch).map_err(map_err)
+}
+
+#[tauri::command]
 fn execute_delete_worktree_workflow(
     app: AppHandle,
     state: State<'_, Arc<AppState>>,
     worktree_id: &str,
+    options: DeleteWorktreeOptions,
 ) {
     // Extract worktree info before spawning thread
     let worktree_info = {
@@ -250,6 +258,7 @@ fn execute_delete_worktree_workflow(
                 found = Some((
                     worktree.name.clone(),
                     worktree.path.clone(),
+                    worktree.branch.clone(),
                     project.path.clone(),
                 ));
                 break;
@@ -274,7 +283,7 @@ fn execute_delete_worktree_workflow(
 
     let worktree_id = worktree_id.to_string();
     let app_state = Arc::clone(&*state);
-    let (worktree_name, worktree_path, project_path) = worktree_info;
+    let (worktree_name, worktree_path, branch_name, project_path) = worktree_info;
 
     // Spawn background thread to avoid blocking UI
     std::thread::spawn(move || {
@@ -324,7 +333,23 @@ fn execute_delete_worktree_workflow(
             }
         }
 
-        // Step 3: Save changes
+        // Step 3: Delete local branch if requested
+        if options.delete_branch {
+            let _ = app.emit(
+                "delete-worktree-progress",
+                DeleteWorktreeProgress {
+                    phase: "delete-local-branch".to_string(),
+                    message: "Deleting local branch...".to_string(),
+                },
+            );
+
+            if let Err(e) = git::delete_local_branch(project_path, &branch_name) {
+                info!("Failed to delete local branch: {}", e);
+                // Don't fail the whole operation if branch deletion fails
+            }
+        }
+
+        // Step 4: Save changes
         let _ = app.emit(
             "delete-worktree-progress",
             DeleteWorktreeProgress {
@@ -986,6 +1011,12 @@ pub struct MergeCompleted {
 // Delete worktree workflow types
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct DeleteWorktreeOptions {
+    pub delete_branch: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct DeleteWorktreeProgress {
     pub phase: String,
     pub message: String,
@@ -1596,6 +1627,7 @@ pub fn run() {
             create_worktree,
             list_worktrees,
             delete_worktree,
+            check_worktree_delete_status,
             execute_delete_worktree_workflow,
             remove_stale_worktree,
             rename_worktree,

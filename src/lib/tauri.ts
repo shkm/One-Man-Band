@@ -7,6 +7,8 @@ import {
   MergeFeasibility,
   MergeWorkflowOptions,
   CleanupOptions,
+  WorktreeDeleteStatus,
+  DeleteWorktreeOptions,
 } from '../types';
 
 // Project commands
@@ -42,12 +44,20 @@ export async function deleteWorktree(worktreeId: string): Promise<void> {
   return invoke('delete_worktree', { worktreeId });
 }
 
+export async function checkWorktreeDeleteStatus(
+  worktreePath: string,
+  projectPath?: string
+): Promise<WorktreeDeleteStatus> {
+  return invoke<WorktreeDeleteStatus>('check_worktree_delete_status', { worktreePath, projectPath });
+}
+
 export async function executeDeleteWorktreeWorkflow(
-  worktreeId: string
+  worktreeId: string,
+  options: DeleteWorktreeOptions
 ): Promise<void> {
   // Fire and forget - the command runs in a background thread
   // and emits 'delete-worktree-completed' event when done
-  await invoke<void>('execute_delete_worktree_workflow', { worktreeId });
+  await invoke<void>('execute_delete_worktree_workflow', { worktreeId, options });
 }
 
 // Reorder commands

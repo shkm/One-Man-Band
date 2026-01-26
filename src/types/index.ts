@@ -130,8 +130,18 @@ export interface CleanupOptions {
 }
 
 // Delete worktree workflow types
+export interface WorktreeDeleteStatus {
+  hasUncommittedChanges: boolean;
+  unpushedCommits: number;
+  branchName: string;
+}
+
+export interface DeleteWorktreeOptions {
+  deleteBranch: boolean;
+}
+
 export interface DeleteWorktreeProgress {
-  phase: 'stop-watcher' | 'remove-worktree' | 'save' | 'complete' | 'error';
+  phase: 'stop-watcher' | 'remove-worktree' | 'delete-local-branch' | 'save' | 'complete' | 'error';
   message: string;
 }
 
