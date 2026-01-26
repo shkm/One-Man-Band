@@ -90,6 +90,46 @@ textarea,
   -webkit-tap-highlight-color: transparent;
 }
 
+/* Overlay scrollbars - prevent layout shift when scrollbars appear/disappear */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+  background: transparent;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.35);
+}
+
+/* Reserve scrollbar gutter to prevent layout shift in vertical scrolling */
+.overflow-y-auto,
+.overflow-auto {
+  scrollbar-gutter: stable;
+}
+
+/* Hide scrollbar but allow scrolling - for tab bars and similar UI */
+.scrollbar-none {
+  scrollbar-width: none;
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
 /* React Resizable Panels */
 [data-panel-group] {
   display: flex;

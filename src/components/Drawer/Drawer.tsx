@@ -161,7 +161,7 @@ export function Drawer({
               items={tabs.map((t) => t.id)}
               strategy={horizontalListSortingStrategy}
             >
-              <div className="flex items-stretch overflow-x-auto flex-1">
+              <div className="flex items-stretch overflow-x-auto scrollbar-none flex-1">
                 {tabs.map((tab, index) => (
                   <SortableDrawerTab
                     key={tab.id}

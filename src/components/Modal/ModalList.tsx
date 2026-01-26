@@ -13,17 +13,7 @@ export const ModalList = forwardRef<HTMLDivElement, ModalListProps>(function Mod
   return (
     <div
       ref={ref}
-      className="max-h-80 overflow-y-auto py-1 scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent hover:scrollbar-thumb-zinc-600"
-      style={{
-        scrollbarWidth: 'thin',
-        scrollbarColor: 'transparent transparent',
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.scrollbarColor = 'rgb(63 63 70) transparent';
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.scrollbarColor = 'transparent transparent';
-      }}
+      className="max-h-80 overflow-y-auto py-1"
     >
       {isEmpty ? (
         <div className="px-3 py-6 text-sm text-center" style={{ color: 'var(--modal-item-text-muted)' }}>
