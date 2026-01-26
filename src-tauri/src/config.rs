@@ -192,6 +192,22 @@ impl Default for MergeConfig {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct DeleteConfig {
+    /// Delete the local branch when deleting a worktree (default: true)
+    #[serde(rename = "deleteBranchWithWorktree")]
+    pub delete_branch_with_worktree: bool,
+}
+
+impl Default for DeleteConfig {
+    fn default() -> Self {
+        Self {
+            delete_branch_with_worktree: true,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(default)]
 pub struct NavigationConfig {
@@ -345,6 +361,9 @@ pub struct WorktreeConfig {
 
     /// Configuration for merge operations
     pub merge: MergeConfig,
+
+    /// Configuration for delete operations
+    pub delete: DeleteConfig,
 }
 
 impl Default for WorktreeConfig {
@@ -355,6 +374,7 @@ impl Default for WorktreeConfig {
             copy: CopyConfig::default(),
             focus_new_branch_names: false,
             merge: MergeConfig::default(),
+            delete: DeleteConfig::default(),
         }
     }
 }

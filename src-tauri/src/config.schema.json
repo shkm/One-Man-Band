@@ -173,6 +173,18 @@
             }
           },
           "additionalProperties": false
+        },
+        "delete": {
+          "type": "object",
+          "description": "Configuration for worktree deletion",
+          "properties": {
+            "deleteBranchWithWorktree": {
+              "type": "boolean",
+              "description": "Delete the local branch when deleting a worktree",
+              "default": true
+            }
+          },
+          "additionalProperties": false
         }
       },
       "additionalProperties": false

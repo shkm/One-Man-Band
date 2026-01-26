@@ -43,6 +43,18 @@ pub struct MergeFeasibility {
     pub error: Option<String>,
 }
 
+/// Status information for worktree deletion
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WorktreeDeleteStatus {
+    /// Whether there are uncommitted changes (staged, unstaged, or untracked)
+    pub has_uncommitted_changes: bool,
+    /// Number of commits not pushed to remote tracking branch
+    pub unpushed_commits: usize,
+    /// The current branch name
+    pub branch_name: String,
+}
+
 pub fn is_git_repo(path: &Path) -> bool {
     Repository::open(path).is_ok()
 }
@@ -446,6 +458,57 @@ fn has_modified_or_staged_changes(repo: &Repository) -> Result<bool, GitError> {
 
     log::info!("[has_modified_or_staged_changes] Total files found: {}", statuses.len());
     Ok(!statuses.is_empty())
+}
+
+/// Check worktree status for deletion warnings
+pub fn check_worktree_delete_status(worktree_path: &Path, base_branch: &BaseBranch) -> Result<WorktreeDeleteStatus, GitError> {
+    let repo = Repository::open(worktree_path)?;
+
+    // Get current branch name
+    let head = repo.head()?;
+    let branch_name = head
+        .shorthand()
+        .unwrap_or("HEAD")
+        .to_string();
+
+    // Check for uncommitted changes
+    let has_uncommitted = has_uncommitted_changes(&repo)?;
+
+    // Count commits ahead of the configured base branch
+    let target_branch = resolve_target_branch(&repo, base_branch)?;
+    let unpushed_commits = count_commits_ahead_of_base(&repo, &branch_name, &target_branch).unwrap_or(0);
+
+    Ok(WorktreeDeleteStatus {
+        has_uncommitted_changes: has_uncommitted,
+        unpushed_commits,
+        branch_name,
+    })
+}
+
+/// Count commits on this branch that aren't in the target branch.
+fn count_commits_ahead_of_base(repo: &Repository, branch_name: &str, target_branch: &str) -> Result<usize, GitError> {
+    // Don't compare against self
+    if branch_name == target_branch {
+        return Ok(0);
+    }
+
+    // Find the local branch
+    let local_branch = match repo.find_branch(branch_name, BranchType::Local) {
+        Ok(branch) => branch,
+        Err(_) => return Ok(0),
+    };
+
+    let target_branch_ref = match repo.find_branch(target_branch, BranchType::Local) {
+        Ok(branch) => branch,
+        Err(_) => return Ok(0),
+    };
+
+    let local_commit = local_branch.get().peel_to_commit()?;
+    let target_commit = target_branch_ref.get().peel_to_commit()?;
+
+    let (ahead, _behind) = repo.graph_ahead_behind(local_commit.id(), target_commit.id())?;
+
+    Ok(ahead)
 }
 
 /// Stash uncommitted changes in a repository using git CLI.

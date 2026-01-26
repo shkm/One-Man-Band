@@ -41,6 +41,10 @@
       "deleteWorktree": true,
       "deleteLocalBranch": false,
       "deleteRemoteBranch": false
+    },
+    "delete": {
+      // Delete the local branch when deleting a worktree
+      "deleteBranchWithWorktree": true
     }
   },
 
