@@ -49,7 +49,7 @@ describe('SortableSessionTab', () => {
       expect(tabElement?.querySelector('svg')).toBeInTheDocument();
     });
 
-    it('renders shortcut number instead of icon when ctrl is held', () => {
+    it('renders shortcut number instead of icon when Cmd is held', () => {
       render(
         <SortableSessionTab
           {...defaultProps}
@@ -60,7 +60,7 @@ describe('SortableSessionTab', () => {
       expect(screen.getByText('1')).toBeInTheDocument();
     });
 
-    it('does not show shortcut number when ctrl is held but shortcutNumber is null', () => {
+    it('does not show shortcut number when Cmd is held but shortcutNumber is null', () => {
       render(
         <SortableSessionTab
           {...defaultProps}
@@ -146,7 +146,7 @@ describe('SortableSessionTab', () => {
   });
 
   describe('shortcut numbers', () => {
-    it('shows shortcut number 1 when ctrl is held', () => {
+    it('shows shortcut number 1 when Cmd is held', () => {
       render(
         <SortableSessionTab
           {...defaultProps}
@@ -157,7 +157,7 @@ describe('SortableSessionTab', () => {
       expect(screen.getByText('1')).toBeInTheDocument();
     });
 
-    it('shows shortcut number 9 when ctrl is held', () => {
+    it('shows shortcut number 9 when Cmd is held', () => {
       render(
         <SortableSessionTab
           {...defaultProps}
@@ -168,7 +168,7 @@ describe('SortableSessionTab', () => {
       expect(screen.getByText('9')).toBeInTheDocument();
     });
 
-    it('does not show shortcut when ctrl is not held even if shortcutNumber is set', () => {
+    it('does not show shortcut when Cmd is not held even if shortcutNumber is set', () => {
       render(
         <SortableSessionTab
           {...defaultProps}

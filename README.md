@@ -83,37 +83,9 @@ By the way, this was called "One Man Band" to begin with. So any references to t
 
 ## Keyboard Shortcuts
 
-| Shortcut                                 | Action                               |
-| ---------------------------------------- | ------------------------------------ |
-| ``Ctrl+` ``                              | Toggle drawer (terminal panel)       |
-| `Ctrl+\`                                 | Switch focus between main and drawer |
-| `Shift+Escape`                           | Expand drawer                        |
-| `Cmd+B`                                  | Toggle right sidebar (changed files) |
-| `Cmd+;` (macOS) / `Ctrl+;` (other)       | Open task switcher                   |
-| `Cmd+R` (macOS) / `Ctrl+Shift+R` (other) | Run/stop selected task               |
-| `Cmd+N` (macOS) / `Ctrl+N` (other)       | New worktree                         |
-| `Cmd+1-9` (macOS) / `Ctrl+1-9` (other)   | Switch to worktree 1-9               |
-| `Cmd+J` (macOS) / `Ctrl+Shift+J` (other) | Next worktree                        |
-| `Cmd+K` (macOS) / `Ctrl+Shift+K` (other) | Previous worktree                    |
-| `Cmd+'` (macOS) / `Ctrl+'` (other)       | Previous view                        |
-| `Cmd+C` (macOS) / `Ctrl+Shift+C` (other) | Copy selected text in terminal       |
-| `Cmd+V` (macOS) / `Ctrl+Shift+V` (other) | Paste text in terminal               |
+See [defaultMappings.jsonc](src/lib/defaultMappings.jsonc) for all keyboard shortcuts.
 
-These shortcuts can be customized via `mappings` in the [config](#configuration). Shortcuts support flexible configuration:
-
-```jsonc
-"mappings": {
-  // Simple string — same shortcut everywhere
-  // "cmd" = Cmd on macOS, Ctrl on other platforms
-  "toggleDrawer": "ctrl+`",
-
-  // Platform-specific object — different shortcuts per platform
-  "terminalCopy": { "mac": "cmd+c", "other": "ctrl+shift+c" },
-
-  // Array — multiple shortcuts for the same action
-  "someAction": ["ctrl+x", { "mac": "cmd+x", "other": "ctrl+shift+x" }]
-}
-```
+Shortcuts can be customized by creating `~/.config/shellflow/mappings.jsonc`. User mappings override the defaults.
 
 ## Installation
 

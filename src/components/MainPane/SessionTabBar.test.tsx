@@ -145,7 +145,7 @@ describe('SessionTabBar', () => {
   });
 
   describe('keyboard shortcut hints', () => {
-    it('shows shortcut numbers when ctrl key is held', () => {
+    it('shows shortcut numbers when Cmd key is held', () => {
       const tabs = [
         createTab('tab-1', 'Terminal 1'),
         createTab('tab-2', 'Terminal 2'),
@@ -165,7 +165,7 @@ describe('SessionTabBar', () => {
       expect(screen.getByText('3')).toBeInTheDocument();
     });
 
-    it('does not show shortcut numbers when ctrl key is not held', () => {
+    it('does not show shortcut numbers when Cmd key is not held', () => {
       const tabs = [
         createTab('tab-1', 'Terminal 1'),
         createTab('tab-2', 'Terminal 2'),

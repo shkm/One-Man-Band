@@ -389,7 +389,7 @@ function App() {
   });
   const [isShuttingDown, setIsShuttingDown] = useState(false);
   const [isModifierKeyHeld, setIsModifierKeyHeld] = useState(false);
-  const [isCtrlKeyHeld, setIsCtrlKeyHeld] = useState(false);
+  const [isCtrlCmdKeyHeld, setIsCtrlCmdKeyHeld] = useState(false);
 
   // Track when a picker is open to block global shortcuts
   const isPickerOpen = isTaskSwitcherOpen || isCommandPaletteOpen || isProjectSwitcherOpen;
@@ -2371,18 +2371,18 @@ function App() {
     resolveKeyEvent, contextActionHandlers,
   ]);
 
-  // Modifier key tracking (for UI feedback like showing shortcut numbers in sidebar)
+  // Modifier key tracking (for UI feedback like showing shortcut numbers)
   useEffect(() => {
     const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Track modifier key state (cmd on mac, ctrl on other)
+      // Track modifier key state (cmd on mac, ctrl on other) - for tab indicators
       if ((isMac && e.metaKey) || (!isMac && e.ctrlKey)) {
         setIsModifierKeyHeld(true);
       }
-      // Track Ctrl key separately for drawer tab shortcuts
-      if (e.ctrlKey) {
-        setIsCtrlKeyHeld(true);
+      // Track Ctrl+Cmd for sidebar indicators (macOS only, ctrl+ctrl on other platforms)
+      if (e.ctrlKey && ((isMac && e.metaKey) || (!isMac && e.ctrlKey))) {
+        setIsCtrlCmdKeyHeld(true);
       }
     };
 
@@ -2391,15 +2391,16 @@ function App() {
       if ((isMac && e.key === 'Meta') || (!isMac && e.key === 'Control')) {
         setIsModifierKeyHeld(false);
       }
-      if (e.key === 'Control') {
-        setIsCtrlKeyHeld(false);
+      // Clear Ctrl+Cmd state when either is released
+      if (e.key === 'Control' || (isMac && e.key === 'Meta')) {
+        setIsCtrlCmdKeyHeld(false);
       }
     };
 
     // Clear modifier state when window loses focus
     const handleBlur = () => {
       setIsModifierKeyHeld(false);
-      setIsCtrlKeyHeld(false);
+      setIsCtrlCmdKeyHeld(false);
     };
 
     window.addEventListener('keydown', handleKeyDown);
@@ -2592,7 +2593,7 @@ function App() {
               openProjectIds={openProjectIds}
               openWorktreeIds={openWorktreeIds}
               openEntitiesInOrder={openEntitiesInOrder}
-              isModifierKeyHeld={isModifierKeyHeld && !isPickerOpen}
+              isModifierKeyHeld={isCtrlCmdKeyHeld && !isPickerOpen}
               loadingWorktrees={loadingWorktrees}
               notifiedWorktreeIds={notifiedWorktreeIds}
               thinkingWorktreeIds={thinkingWorktreeIds}
@@ -2668,7 +2669,7 @@ function App() {
                   allSessionTabs={sessionTabs}
                   activeSessionTabId={activeSessionTabId}
                   sessionLastActiveTabIds={sessionLastActiveTabIds}
-                  isCtrlKeyHeld={isCtrlKeyHeld && !isPickerOpen}
+                  isCtrlKeyHeld={isModifierKeyHeld && !isPickerOpen}
                   onSelectSessionTab={handleSelectSessionTab}
                   onCloseSessionTab={handleCloseSessionTab}
                   onAddSessionTab={handleAddSessionTab}
@@ -2720,7 +2721,7 @@ function App() {
                   tabs={activeDrawerTabs}
                   activeTabId={activeDrawerTabId}
                   taskStatuses={activeTaskStatuses}
-                  isCtrlKeyHeld={isCtrlKeyHeld && !isPickerOpen}
+                  isCtrlKeyHeld={isModifierKeyHeld && !isPickerOpen}
                   onSelectTab={handleSelectDrawerTab}
                   onCloseTab={handleCloseDrawerTab}
                   onAddTab={handleAddDrawerTab}

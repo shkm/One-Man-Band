@@ -230,7 +230,7 @@ describe('Drawer', () => {
   });
 
   describe('shortcut numbers', () => {
-    it('shows shortcut numbers when Ctrl key is held', () => {
+    it('shows shortcut numbers when Cmd key is held', () => {
       const tabs = [
         createTab({ id: 'tab-1', label: 'Terminal 1' }),
         createTab({ id: 'tab-2', label: 'Terminal 2' }),
@@ -245,7 +245,7 @@ describe('Drawer', () => {
       expect(screen.getByText('3')).toBeInTheDocument();
     });
 
-    it('hides shortcut numbers when Ctrl key is not held', () => {
+    it('hides shortcut numbers when Cmd key is not held', () => {
       const tabs = [
         createTab({ id: 'tab-1', label: 'Terminal 1' }),
       ];
