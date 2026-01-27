@@ -17,6 +17,7 @@ import { StashModal } from './components/StashModal';
 import { ShutdownScreen } from './components/ShutdownScreen';
 import { TaskSwitcher } from './components/TaskSwitcher/TaskSwitcher';
 import { CommandPalette } from './components/CommandPalette';
+import { ThemeSwitcher } from './components/ThemeSwitcher';
 import { ProjectSwitcher } from './components/ProjectSwitcher';
 import { useWorktrees } from './hooks/useWorktrees';
 import { useGitStatus } from './hooks/useGitStatus';
@@ -37,6 +38,7 @@ import { copyFromActiveTerminal, pasteToActiveTerminal } from './lib/terminalReg
 import { Project, Worktree, RunningTask, MergeCompleted, Session, SessionKind, ChangedFilesViewMode } from './types';
 import { ToastContainer } from './components/Toast';
 import { useToast } from './hooks/useToast';
+import { ThemeProvider, ThemeBorderStyle } from './theme';
 
 const EXPANDED_PROJECTS_KEY = 'shellflow:expandedProjects';
 const SELECTED_TASKS_KEY = 'shellflow:selectedTasks';
@@ -334,6 +336,9 @@ function App() {
   const [isTaskSwitcherOpen, setIsTaskSwitcherOpen] = useState(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [isProjectSwitcherOpen, setIsProjectSwitcherOpen] = useState(false);
+  const [isThemeSwitcherOpen, setIsThemeSwitcherOpen] = useState(false);
+  // Runtime border style override (cycles through: theme -> subtle -> visible)
+  const [runtimeBorderStyle, setRuntimeBorderStyle] = useState<ThemeBorderStyle | null>(null);
   const [isStashing, setIsStashing] = useState(false);
   const [stashError, setStashError] = useState<string | null>(null);
   const [loadingWorktrees, setLoadingWorktrees] = useState<Set<string>>(new Set());
@@ -475,7 +480,7 @@ function App() {
   const [isCtrlCmdKeyHeld, setIsCtrlCmdKeyHeld] = useState(false);
 
   // Track when a picker is open to block global shortcuts
-  const isPickerOpen = isTaskSwitcherOpen || isCommandPaletteOpen || isProjectSwitcherOpen;
+  const isPickerOpen = isTaskSwitcherOpen || isCommandPaletteOpen || isProjectSwitcherOpen || isThemeSwitcherOpen;
   // Use a ref so the keyboard handler always sees the current value (no stale closures)
   const isPickerOpenRef = useRef(isPickerOpen);
   isPickerOpenRef.current = isPickerOpen;
@@ -1460,6 +1465,16 @@ function App() {
       setMainZoom(0);
     }
   }, [activeFocusState]);
+
+  // Cycle through border styles: theme -> subtle -> visible -> theme
+  const handleCycleBorderStyle = useCallback(() => {
+    const current = runtimeBorderStyle ?? config.themeBorderStyle ?? 'subtle';
+    const next: ThemeBorderStyle = current === 'theme' ? 'subtle' : current === 'subtle' ? 'visible' : 'theme';
+    setRuntimeBorderStyle(next);
+  }, [runtimeBorderStyle, config.themeBorderStyle]);
+
+  // Effective border style (runtime override or config)
+  const effectiveBorderStyle = runtimeBorderStyle ?? config.themeBorderStyle ?? 'subtle';
 
   // Adjusted terminal configs with zoom applied
   const mainTerminalConfig = useMemo(() => ({
@@ -2511,7 +2526,7 @@ function App() {
     changedFilesCount: changedFiles.length,
   }), [activeProjectId, activeWorktreeId, activeScratchId, activeEntityId, isDrawerOpen, activeFocusState, activeDrawerTabId, openEntitiesInOrder.length, canGoBack, canGoForward, activeSelectedTask, config.tasks.length, activeDiffState.isViewingDiff, changedFiles.length]);
 
-  // Dynamic labels for command palette based on configured apps
+  // Dynamic labels for command palette based on configured apps and state
   const commandPaletteLabelOverrides = useMemo(() => {
     const overrides: Partial<Record<ActionId, string>> = {};
 
@@ -2529,8 +2544,16 @@ function App() {
       overrides['app::openInEditor'] = `Open in ${editorCommand}`;
     }
 
+    // Show current and next border style
+    const nextStyle: Record<ThemeBorderStyle, ThemeBorderStyle> = {
+      theme: 'subtle',
+      subtle: 'visible',
+      visible: 'theme',
+    };
+    overrides.cycleBorderStyle = `Border Style: ${effectiveBorderStyle} → ${nextStyle[effectiveBorderStyle]}`;
+
     return overrides;
-  }, [config.apps.fileManager, config.apps.terminal, config.apps.editor]);
+  }, [config.apps.fileManager, config.apps.terminal, config.apps.editor, effectiveBorderStyle]);
 
   // Helper to get current entity index in openEntitiesInOrder
   const getCurrentEntityIndex = useCallback(() => {
@@ -2736,6 +2759,8 @@ function App() {
     'drawer::toggle': handleToggleDrawer,
     'drawer::expand': handleToggleDrawerExpand,
     'rightPanel::toggle': handleToggleRightPanel,
+    'view::switchTheme': () => setIsThemeSwitcherOpen(true),
+    'view::cycleBorderStyle': handleCycleBorderStyle,
     'view::zoomIn': handleZoomIn,
     'view::zoomOut': handleZoomOut,
     'view::zoomReset': handleZoomReset,
@@ -2792,7 +2817,7 @@ function App() {
     handleAddDrawerTab, handleOpenInDrawer, handleOpenInTab, handleAddSessionTab,
     handleCloseWorktree, handleCloseScratch,
     handleToggleDrawer, handleToggleDrawerExpand, handleToggleRightPanel, handleToggleProjectSwitcher,
-    handleZoomIn, handleZoomOut, handleZoomReset, handleNavigateBack, handleNavigateForward, handleSwitchFocus,
+    handleZoomIn, handleZoomOut, handleZoomReset, handleCycleBorderStyle, handleNavigateBack, handleNavigateForward, handleSwitchFocus,
     handleRenameBranch, handleMergeWorktree, handleDeleteWorktree, handleToggleTask, handleToggleTaskSwitcher,
     handleNextChangedFile, handlePrevChangedFile,
     getCurrentEntityIndex, selectEntityAtIndex,
@@ -3080,7 +3105,8 @@ function App() {
     : null;
 
   return (
-    <div className="h-screen w-screen overflow-hidden flex flex-col bg-zinc-950">
+    <ThemeProvider themeConfig={config.theme} borderStyle={effectiveBorderStyle}>
+    <div className="h-screen w-screen overflow-hidden flex flex-col" style={{ backgroundColor: 'var(--body-bg)' }}>
       {/* Shutdown screen overlay */}
       <ShutdownScreen isVisible={isShuttingDown} />
 
@@ -3205,6 +3231,14 @@ function App() {
         />
       )}
 
+      {isThemeSwitcherOpen && (
+        <ThemeSwitcher
+          onClose={() => setIsThemeSwitcherOpen(false)}
+          onModalOpen={onModalOpen}
+          onModalClose={onModalClose}
+        />
+      )}
+
       {/* Main content - horizontal layout */}
       <PanelGroup
         orientation="horizontal"
@@ -3283,7 +3317,7 @@ function App() {
           </div>
         </Panel>
 
-        <PanelResizeHandle className="w-px bg-zinc-700 hover:bg-zinc-500 transition-colors focus:outline-none !cursor-col-resize" />
+        <PanelResizeHandle className="w-px bg-resize-handle hover:bg-resize-handle-hover transition-colors focus:outline-none !cursor-col-resize" />
 
         {/* Main Pane with Drawer - vertical layout */}
         <Panel minSize="300px">
@@ -3309,6 +3343,7 @@ function App() {
                   onAddSessionTab={handleAddSessionTab}
                   onReorderSessionTabs={handleReorderSessionTabs}
                   terminalConfig={mainTerminalConfig}
+                  editorConfig={config.main}
                   activityTimeout={config.indicators.activityTimeout}
                   shouldAutoFocus={activeFocusState === 'main'}
                   focusTrigger={mainFocusTrigger}
@@ -3331,7 +3366,7 @@ function App() {
             <PanelResizeHandle
               className={`transition-colors focus:outline-none !cursor-row-resize ${
                 isDrawerOpen && !isDrawerExpanded
-                  ? 'h-px bg-zinc-700 hover:bg-zinc-500'
+                  ? 'h-px bg-resize-handle hover:bg-resize-handle-hover'
                   : 'h-0 pointer-events-none'
               }`}
             />
@@ -3455,7 +3490,7 @@ function App() {
         <PanelResizeHandle
           className={`w-px transition-colors focus:outline-none !cursor-col-resize ${
             (activeWorktreeId || (activeProjectId && !activeScratchId)) && isRightPanelOpen
-              ? 'bg-zinc-700 hover:bg-zinc-500'
+              ? 'bg-resize-handle hover:bg-resize-handle-hover'
               : 'bg-transparent pointer-events-none'
           }`}
         />
@@ -3486,6 +3521,7 @@ function App() {
       {/* Toast notifications */}
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
     </div>
+    </ThemeProvider>
   );
 }
 

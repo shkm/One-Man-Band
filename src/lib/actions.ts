@@ -50,6 +50,8 @@ export type ActionId =
   | 'view::zoomIn'
   | 'view::zoomOut'
   | 'view::zoomReset'
+  | 'view::switchTheme'
+  | 'view::cycleBorderStyle'
   // Navigate actions
   | 'navigate::prev'
   | 'navigate::next'
@@ -113,6 +115,10 @@ const AVAILABILITY: Record<ActionId, (ctx: ActionContext) => boolean> = {
   // Palette actions
   'palette::toggle': () => true,
   'palette::projectSwitcher': () => true,
+
+  // Theme actions
+  'view::switchTheme': () => true,
+  'view::cycleBorderStyle': () => true,
 
   // Session actions
   'session::newTab': (ctx) => !!ctx.activeEntityId,
@@ -227,6 +233,10 @@ export const ACTION_METADATA: Record<ActionId, ActionMetadata> = {
   // Palette actions
   'palette::toggle': { label: 'Command Palette', category: 'View', showInPalette: false },
   'palette::projectSwitcher': { label: 'Switch Project', category: 'File', showInPalette: true },
+
+  // Theme actions
+  'view::switchTheme': { label: 'Switch Theme', category: 'View', showInPalette: true },
+  'view::cycleBorderStyle': { label: 'Cycle Border Style', category: 'View', showInPalette: true },
 
   // Session actions
   'session::newTab': { label: 'New Tab', category: 'File', showInPalette: true },
