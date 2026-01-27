@@ -173,6 +173,17 @@
     },
 
     // ============================================================
+    // Diff view navigation (when viewing a diff)
+    // ============================================================
+    {
+      "context": "diffViewOpen && !pickerOpen && !modalOpen",
+      "bindings": {
+        "cmd-j": "diff::nextFile",
+        "cmd-k": "diff::prevFile"
+      }
+    },
+
+    // ============================================================
     // Terminal copy/paste (when in any terminal context)
     // These work in both main and drawer terminals
     // ============================================================

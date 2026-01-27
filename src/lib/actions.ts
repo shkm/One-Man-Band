@@ -53,6 +53,9 @@ export type ActionId =
   | 'renameSession'
   | 'mergeWorktree'
   | 'deleteWorktree'
+  // Diff navigation
+  | 'nextChangedFile'
+  | 'prevChangedFile'
   // Tasks menu
   | 'runTask'
   | 'taskSwitcher'
@@ -74,6 +77,10 @@ export interface ActionContext {
   previousView: unknown | null;
   activeSelectedTask: string | null;
   taskCount: number;
+  /** Whether the active tab is showing a diff view */
+  isViewingDiff: boolean;
+  /** Number of files in the changed files list */
+  changedFilesCount: number;
 }
 
 // Availability predicates - THE source of truth for "can this action run?"
@@ -123,6 +130,10 @@ const AVAILABILITY: Record<ActionId, (ctx: ActionContext) => boolean> = {
   mergeWorktree: (ctx) => !!ctx.activeWorktreeId,
   deleteWorktree: (ctx) => !!ctx.activeWorktreeId,
 
+  // Diff navigation (available when viewing diff with multiple files)
+  nextChangedFile: (ctx) => ctx.isViewingDiff && ctx.changedFilesCount > 1,
+  prevChangedFile: (ctx) => ctx.isViewingDiff && ctx.changedFilesCount > 1,
+
   // Tasks menu
   runTask: (ctx) => !!ctx.activeEntityId && !!ctx.activeSelectedTask,
   taskSwitcher: (ctx) => ctx.taskCount > 0,
@@ -171,6 +182,8 @@ const ACTION_TO_MENU_ID: Record<ActionId, string> = {
   renameSession: 'rename_session',
   mergeWorktree: 'merge_worktree',
   deleteWorktree: 'delete_worktree',
+  nextChangedFile: 'next_changed_file',
+  prevChangedFile: 'prev_changed_file',
   runTask: 'run_task',
   taskSwitcher: 'task_switcher',
   helpDocs: 'help_docs',
@@ -278,6 +291,8 @@ export const ACTION_METADATA: Record<ActionId, ActionMetadata> = {
   renameSession: { label: 'Rename Session', category: 'Navigate', showInPalette: true },
   mergeWorktree: { label: 'Merge Worktree', category: 'Navigate', showInPalette: true },
   deleteWorktree: { label: 'Delete Worktree', category: 'Navigate', showInPalette: true },
+  nextChangedFile: { label: 'Next Changed File', category: 'Navigate', showInPalette: true },
+  prevChangedFile: { label: 'Previous Changed File', category: 'Navigate', showInPalette: true },
 
   // Tasks menu
   runTask: { label: 'Run Task', category: 'Tasks', showInPalette: true },

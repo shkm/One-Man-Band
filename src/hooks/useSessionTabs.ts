@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef } from 'react';
 import { arrayMove } from '@dnd-kit/sortable';
+import type { DiffTabConfig } from '../types';
 
 export interface SessionTab {
   id: string;           // e.g., "worktree-abc-session-1"
@@ -9,6 +10,8 @@ export interface SessionTab {
   command?: string;
   /** For command tabs: directory to run the command in */
   directory?: string;
+  /** For diff tabs: diff viewer configuration */
+  diff?: DiffTabConfig;
 }
 
 export interface UseSessionTabsReturn {
@@ -49,6 +52,7 @@ export interface UseSessionTabsReturn {
 
   // Update tab properties
   updateTabLabel: (sessionId: string, tabId: string, label: string) => void;
+  updateTab: (sessionId: string, tabId: string, updates: Partial<SessionTab>) => void;
 
   // Navigation
   prevTab: (sessionId: string) => void;
@@ -232,6 +236,20 @@ export function useSessionTabs(): UseSessionTabsReturn {
     });
   }, []);
 
+  const updateTab = useCallback((sessionId: string, tabId: string, updates: Partial<SessionTab>) => {
+    setSessionTabs((prev) => {
+      const tabs = prev.get(sessionId);
+      if (!tabs) return prev;
+      const tabIndex = tabs.findIndex(t => t.id === tabId);
+      if (tabIndex === -1) return prev;
+      const next = new Map(prev);
+      const updatedTabs = [...tabs];
+      updatedTabs[tabIndex] = { ...tabs[tabIndex], ...updates };
+      next.set(sessionId, updatedTabs);
+      return next;
+    });
+  }, []);
+
   const prevTab = useCallback((sessionId: string) => {
     const tabs = tabsRef.current.get(sessionId) ?? [];
     const activeId = activeTabIdsRef.current.get(sessionId);
@@ -310,6 +328,7 @@ export function useSessionTabs(): UseSessionTabsReturn {
     removePtyId,
     setLastActiveTabId,
     updateTabLabel,
+    updateTab,
     prevTab,
     nextTab,
     selectTabByIndex,

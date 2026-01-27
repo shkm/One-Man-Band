@@ -300,7 +300,195 @@ pub fn get_changed_files(worktree_path: &Path) -> Result<Vec<FileChange>, GitErr
         }
     }
 
+    // Sort by path for consistent ordering
+    changes.sort_by(|a, b| a.path.cmp(&b.path));
+
     Ok(changes)
+}
+
+/// Get information about the current branch relative to a base branch
+pub fn get_branch_info(worktree_path: &Path, base_branch: &BaseBranch) -> Result<crate::state::BranchInfo, GitError> {
+    let repo = Repository::open(worktree_path)?;
+    let current_branch = get_current_branch(&repo)?;
+    let base = resolve_target_branch(&repo, base_branch)?;
+    let is_on_base_branch = current_branch == base;
+
+    Ok(crate::state::BranchInfo {
+        current_branch,
+        base_branch: base,
+        is_on_base_branch,
+    })
+}
+
+/// Get files changed between the working tree and the base branch
+/// This includes committed changes (not in base), uncommitted changes, AND untracked files
+pub fn get_branch_changed_files(
+    worktree_path: &Path,
+    base_branch: &BaseBranch,
+) -> Result<Vec<FileChange>, GitError> {
+    use std::collections::HashMap;
+    use std::process::Command;
+
+    let repo = Repository::open(worktree_path)?;
+    let target_branch = resolve_target_branch(&repo, base_branch)?;
+
+    // Get file status changes using git diff --name-status
+    // Compare base branch directly to working tree (includes uncommitted changes to tracked files)
+    let output = Command::new("git")
+        .args(["diff", "--name-status", &target_branch])
+        .current_dir(worktree_path)
+        .output()?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(GitError::Io(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            format!("git diff --name-status failed: {}", stderr),
+        )));
+    }
+
+    // Parse name-status output
+    let mut file_statuses: HashMap<String, FileStatus> = HashMap::new();
+    for line in String::from_utf8_lossy(&output.stdout).lines() {
+        let parts: Vec<&str> = line.split('\t').collect();
+        if parts.len() >= 2 {
+            let status_char = parts[0].chars().next().unwrap_or('M');
+            let path = parts.last().unwrap().to_string();
+            let status = match status_char {
+                'A' => FileStatus::Added,
+                'D' => FileStatus::Deleted,
+                'R' => FileStatus::Renamed,
+                'M' | _ => FileStatus::Modified,
+            };
+            file_statuses.insert(path, status);
+        }
+    }
+
+    // Also get untracked files using git status
+    let output = Command::new("git")
+        .args(["status", "--porcelain", "-uall"])
+        .current_dir(worktree_path)
+        .output()?;
+
+    if output.status.success() {
+        for line in String::from_utf8_lossy(&output.stdout).lines() {
+            if line.len() < 4 {
+                continue;
+            }
+            let status_chars = &line[0..2];
+            let path = line[3..].to_string();
+
+            // Only add untracked files (marked with ??)
+            if status_chars == "??" && !file_statuses.contains_key(&path) {
+                file_statuses.insert(path, FileStatus::Untracked);
+            }
+        }
+    }
+
+    // Get diff stats using git diff --numstat
+    // Compare base branch directly to working tree
+    let output = Command::new("git")
+        .args(["diff", "--numstat", &target_branch])
+        .current_dir(worktree_path)
+        .output()?;
+
+    let mut diff_stats: HashMap<String, (usize, usize)> = HashMap::new();
+    if output.status.success() {
+        for line in String::from_utf8_lossy(&output.stdout).lines() {
+            let parts: Vec<&str> = line.split('\t').collect();
+            if parts.len() >= 3 {
+                let insertions = parts[0].parse().unwrap_or(0);
+                let deletions = parts[1].parse().unwrap_or(0);
+                let path = parts[2].to_string();
+                diff_stats.insert(path, (insertions, deletions));
+            }
+        }
+    }
+
+    // Combine into FileChange structs
+    let mut changes: Vec<FileChange> = file_statuses
+        .into_iter()
+        .map(|(path, status)| {
+            let (insertions, deletions) = diff_stats.get(&path).copied().unwrap_or((0, 0));
+            FileChange {
+                path,
+                status,
+                insertions: if insertions > 0 || deletions > 0 { Some(insertions) } else { None },
+                deletions: if insertions > 0 || deletions > 0 { Some(deletions) } else { None },
+            }
+        })
+        .collect();
+
+    // Sort by path for consistent ordering
+    changes.sort_by(|a, b| a.path.cmp(&b.path));
+
+    Ok(changes)
+}
+
+/// Get file content at a specific git ref (branch, commit, HEAD)
+pub fn get_file_at_ref(
+    repo_path: &Path,
+    file_path: &str,
+    git_ref: &str,
+) -> Result<String, GitError> {
+    use std::process::Command;
+
+    let output = Command::new("git")
+        .args(["show", &format!("{}:{}", git_ref, file_path)])
+        .current_dir(repo_path)
+        .output()?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(GitError::Io(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            format!("git show failed: {}", stderr),
+        )));
+    }
+
+    Ok(String::from_utf8_lossy(&output.stdout).into_owned())
+}
+
+/// Get current working tree file content
+pub fn get_working_file(repo_path: &Path, file_path: &str) -> Result<String, GitError> {
+    let full_path = repo_path.join(file_path);
+    std::fs::read_to_string(&full_path).map_err(GitError::Io)
+}
+
+/// Detect programming language from file extension
+pub fn detect_language(file_path: &str) -> String {
+    let ext = std::path::Path::new(file_path)
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("");
+
+    match ext {
+        "ts" | "tsx" => "typescript",
+        "js" | "jsx" => "javascript",
+        "rs" => "rust",
+        "py" => "python",
+        "go" => "go",
+        "rb" => "ruby",
+        "java" => "java",
+        "c" | "h" => "c",
+        "cpp" | "hpp" | "cc" | "cxx" => "cpp",
+        "cs" => "csharp",
+        "swift" => "swift",
+        "kt" | "kts" => "kotlin",
+        "php" => "php",
+        "html" | "htm" => "html",
+        "css" => "css",
+        "scss" | "sass" => "scss",
+        "json" => "json",
+        "yaml" | "yml" => "yaml",
+        "toml" => "toml",
+        "xml" => "xml",
+        "md" | "markdown" => "markdown",
+        "sql" => "sql",
+        "sh" | "bash" | "zsh" => "shell",
+        _ => "plaintext",
+    }
+    .to_string()
 }
 
 /// Get list of files with merge conflicts in the worktree.
@@ -859,4 +1047,194 @@ pub fn execute_merge_workflow(
     }
 
     Ok(branch_name)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn file_status_serializes_to_lowercase() {
+        // Test that FileStatus variants serialize to lowercase
+        let added = FileStatus::Added;
+        let modified = FileStatus::Modified;
+        let deleted = FileStatus::Deleted;
+        let renamed = FileStatus::Renamed;
+        let untracked = FileStatus::Untracked;
+
+        assert_eq!(serde_json::to_string(&added).unwrap(), "\"added\"");
+        assert_eq!(serde_json::to_string(&modified).unwrap(), "\"modified\"");
+        assert_eq!(serde_json::to_string(&deleted).unwrap(), "\"deleted\"");
+        assert_eq!(serde_json::to_string(&renamed).unwrap(), "\"renamed\"");
+        assert_eq!(serde_json::to_string(&untracked).unwrap(), "\"untracked\"");
+    }
+
+    #[test]
+    fn file_change_serializes_with_stats() {
+        let change = FileChange {
+            path: "src/app.ts".to_string(),
+            status: FileStatus::Modified,
+            insertions: Some(10),
+            deletions: Some(5),
+        };
+
+        let json = serde_json::to_value(&change).unwrap();
+        assert_eq!(json["path"], "src/app.ts");
+        assert_eq!(json["status"], "modified");
+        assert_eq!(json["insertions"], 10);
+        assert_eq!(json["deletions"], 5);
+    }
+
+    #[test]
+    fn file_change_serializes_without_stats() {
+        let change = FileChange {
+            path: "untracked.ts".to_string(),
+            status: FileStatus::Untracked,
+            insertions: None,
+            deletions: None,
+        };
+
+        let json = serde_json::to_value(&change).unwrap();
+        assert_eq!(json["path"], "untracked.ts");
+        assert_eq!(json["status"], "untracked");
+        assert!(json["insertions"].is_null());
+        assert!(json["deletions"].is_null());
+    }
+
+    #[test]
+    fn validate_branch_name_empty() {
+        let result = validate_branch_name("");
+        assert_eq!(result, Some("Branch name cannot be empty".to_string()));
+    }
+
+    #[test]
+    fn validate_branch_name_too_long() {
+        let long_name = "a".repeat(251);
+        let result = validate_branch_name(&long_name);
+        assert_eq!(
+            result,
+            Some("Branch name is too long (max 250 characters)".to_string())
+        );
+    }
+
+    #[test]
+    fn validate_branch_name_starts_with_dot() {
+        let result = validate_branch_name(".hidden");
+        assert_eq!(result, Some("Branch name cannot start with '.'".to_string()));
+    }
+
+    #[test]
+    fn validate_branch_name_starts_with_hyphen() {
+        let result = validate_branch_name("-option");
+        assert_eq!(result, Some("Branch name cannot start with '-'".to_string()));
+    }
+
+    #[test]
+    fn validate_branch_name_ends_with_slash() {
+        let result = validate_branch_name("feature/");
+        assert_eq!(result, Some("Branch name cannot end with '/'".to_string()));
+    }
+
+    #[test]
+    fn validate_branch_name_ends_with_lock() {
+        let result = validate_branch_name("my-branch.lock");
+        assert_eq!(
+            result,
+            Some("Branch name cannot end with '.lock'".to_string())
+        );
+    }
+
+    #[test]
+    fn validate_branch_name_contains_double_dot() {
+        let result = validate_branch_name("feature..fix");
+        assert_eq!(result, Some("Branch name cannot contain '..'".to_string()));
+    }
+
+    #[test]
+    fn validate_branch_name_equals_at() {
+        let result = validate_branch_name("@");
+        assert_eq!(result, Some("Branch name cannot be '@'".to_string()));
+    }
+
+    #[test]
+    fn validate_branch_name_contains_space() {
+        let result = validate_branch_name("my branch");
+        assert_eq!(result, Some("Branch name cannot contain ' '".to_string()));
+    }
+
+    #[test]
+    fn validate_branch_name_contains_tilde() {
+        let result = validate_branch_name("feature~1");
+        assert_eq!(result, Some("Branch name cannot contain '~'".to_string()));
+    }
+
+    #[test]
+    fn validate_branch_name_contains_caret() {
+        let result = validate_branch_name("feature^2");
+        assert_eq!(result, Some("Branch name cannot contain '^'".to_string()));
+    }
+
+    #[test]
+    fn validate_branch_name_contains_colon() {
+        let result = validate_branch_name("feature:name");
+        assert_eq!(result, Some("Branch name cannot contain ':'".to_string()));
+    }
+
+    #[test]
+    fn validate_branch_name_contains_question() {
+        let result = validate_branch_name("feature?name");
+        assert_eq!(result, Some("Branch name cannot contain '?'".to_string()));
+    }
+
+    #[test]
+    fn validate_branch_name_contains_asterisk() {
+        let result = validate_branch_name("feature*");
+        assert_eq!(result, Some("Branch name cannot contain '*'".to_string()));
+    }
+
+    #[test]
+    fn validate_branch_name_contains_bracket() {
+        let result = validate_branch_name("feature[1]");
+        assert_eq!(result, Some("Branch name cannot contain '['".to_string()));
+    }
+
+    #[test]
+    fn validate_branch_name_contains_backslash() {
+        let result = validate_branch_name("feature\\name");
+        assert_eq!(result, Some("Branch name cannot contain '\\'".to_string()));
+    }
+
+    #[test]
+    fn validate_branch_name_contains_control_char() {
+        let result = validate_branch_name("feature\x00name");
+        assert_eq!(
+            result,
+            Some("Branch name cannot contain control characters".to_string())
+        );
+    }
+
+    #[test]
+    fn validate_branch_name_valid_simple() {
+        let result = validate_branch_name("feature-branch");
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn validate_branch_name_valid_with_slash() {
+        let result = validate_branch_name("feature/new-thing");
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn validate_branch_name_valid_with_numbers() {
+        let result = validate_branch_name("issue-123-fix");
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn validate_branch_name_valid_at_boundary_length() {
+        let name = "a".repeat(250);
+        let result = validate_branch_name(&name);
+        assert_eq!(result, None);
+    }
 }

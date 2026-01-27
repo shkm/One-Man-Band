@@ -51,6 +51,26 @@ pub enum FileStatus {
     Untracked,
 }
 
+/// Information about the current branch relative to base branch
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BranchInfo {
+    pub current_branch: String,
+    pub base_branch: String,
+    pub is_on_base_branch: bool,
+}
+
+/// Content for diff viewer
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DiffContent {
+    pub original: String,
+    pub modified: String,
+    pub original_label: String,
+    pub modified_label: String,
+    pub language: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PersistedState {
     pub projects: Vec<Project>,

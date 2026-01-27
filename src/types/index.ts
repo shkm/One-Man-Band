@@ -52,6 +52,14 @@ export interface TabIndicators {
   idle: boolean;
 }
 
+// Diff tab configuration
+export interface DiffTabConfig {
+  filePath: string;
+  mode: ChangedFilesViewMode;
+  worktreePath: string;
+  projectPath?: string;
+}
+
 // Tab within a session (main pane tabs)
 export interface SessionTab {
   id: string;           // e.g., "worktree-abc-session-1"
@@ -61,6 +69,8 @@ export interface SessionTab {
   command?: string;
   /** For command tabs: directory to run the command in */
   directory?: string;
+  /** For diff tabs: diff viewer configuration */
+  diff?: DiffTabConfig;
 }
 
 export interface Worktree {
@@ -77,6 +87,22 @@ export interface FileChange {
   status: 'added' | 'modified' | 'deleted' | 'renamed' | 'untracked';
   insertions?: number;
   deletions?: number;
+}
+
+export type ChangedFilesViewMode = 'uncommitted' | 'branch';
+
+export interface BranchInfo {
+  currentBranch: string;
+  baseBranch: string;
+  isOnBaseBranch: boolean;
+}
+
+export interface DiffContent {
+  original: string;
+  modified: string;
+  originalLabel: string;
+  modifiedLabel: string;
+  language: string;
 }
 
 export interface PtyOutput {
