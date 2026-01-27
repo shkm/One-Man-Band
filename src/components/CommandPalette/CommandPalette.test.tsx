@@ -16,10 +16,13 @@ describe('CommandPalette', () => {
     isDrawerOpen: false,
     isDrawerFocused: false,
     activeDrawerTabId: null,
-    openWorktreeCount: 0,
-    previousView: null,
+    openEntityCount: 0,
+    canGoBack: false,
+    canGoForward: false,
     activeSelectedTask: null,
     taskCount: 0,
+    isViewingDiff: false,
+    changedFilesCount: 0,
     ...overrides,
   });
 
@@ -53,7 +56,7 @@ describe('CommandPalette', () => {
       render(<CommandPalette {...defaultProps} />);
 
       // Some actions should always be available
-      expect(screen.getByText('Add Project')).toBeInTheDocument();
+      expect(screen.getByText('Open Project')).toBeInTheDocument();
       expect(screen.getByText('Switch Project')).toBeInTheDocument();
     });
 
@@ -280,7 +283,7 @@ describe('CommandPalette', () => {
 
       expect(screen.getByText('Zoom In')).toBeInTheDocument();
       expect(screen.getByText('Zoom Out')).toBeInTheDocument();
-      expect(screen.queryByText('Add Project')).not.toBeInTheDocument();
+      expect(screen.queryByText('Open Project')).not.toBeInTheDocument();
     });
 
     it('is case insensitive', async () => {
@@ -335,9 +338,9 @@ describe('CommandPalette', () => {
 
       render(<CommandPalette {...defaultProps} onExecute={onExecute} />);
 
-      await user.click(screen.getByText('Add Project'));
+      await user.click(screen.getByText('Open Project'));
 
-      expect(onExecute).toHaveBeenCalledWith('addProject');
+      expect(onExecute).toHaveBeenCalledWith('app::addProject');
     });
 
     it('calls onClose after selection', async () => {
@@ -346,7 +349,7 @@ describe('CommandPalette', () => {
 
       render(<CommandPalette {...defaultProps} onClose={onClose} />);
 
-      await user.click(screen.getByText('Add Project'));
+      await user.click(screen.getByText('Open Project'));
 
       expect(onClose).toHaveBeenCalled();
     });
@@ -414,7 +417,7 @@ describe('CommandPalette', () => {
       await user.hover(switchProject);
       await user.keyboard('{Enter}');
 
-      expect(onExecute).toHaveBeenCalledWith('switchProject');
+      expect(onExecute).toHaveBeenCalledWith('palette::projectSwitcher');
     });
   });
 

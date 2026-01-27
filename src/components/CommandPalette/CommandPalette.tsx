@@ -16,28 +16,6 @@ import {
 } from '../../lib/actions';
 import type { TaskConfig } from '../../hooks/useConfig';
 import type { Project, ScratchTerminal } from '../../types';
-import type { ActionId as MappingsActionId } from '../../lib/mappings';
-
-/** Maps old action IDs to new namespaced action IDs for shortcut lookup */
-const OLD_TO_NEW_ACTION: Partial<Record<ActionId, MappingsActionId>> = {
-  toggleDrawer: 'drawer::toggle',
-  expandDrawer: 'drawer::expand',
-  toggleRightPanel: 'rightPanel::toggle',
-  commandPalette: 'palette::toggle',
-  sessionPrev: 'navigate::prev',
-  sessionNext: 'navigate::next',
-  previousView: 'navigate::back',
-  switchFocus: 'focus::switch',
-  zoomIn: 'view::zoomIn',
-  zoomOut: 'view::zoomOut',
-  zoomReset: 'view::zoomReset',
-  runTask: 'task::run',
-  taskSwitcher: 'task::switcher',
-  newWorktree: 'worktree::new',
-  newScratchTerminal: 'scratch::new',
-  newTab: 'session::newTab',
-  renameBranch: 'worktree::renameBranch',
-};
 
 const isMac = typeof navigator !== 'undefined' && navigator.platform.toUpperCase().includes('MAC');
 
@@ -66,8 +44,8 @@ function getItemLabel(item: PaletteItem): string {
 
 interface CommandPaletteProps {
   actionContext: ActionContext;
-  /** Get formatted shortcut for a namespaced action ID */
-  getShortcut: (actionId: MappingsActionId) => string | null;
+  /** Get formatted shortcut for an action ID (namespaced format) */
+  getShortcut: (actionId: ActionId) => string | null;
   /** Override labels for specific actions (e.g., "Open in nvim" instead of "Open in Editor") */
   labelOverrides?: Partial<Record<ActionId, string>>;
   tasks: TaskConfig[];
@@ -108,16 +86,10 @@ export function CommandPalette({
     for (const actionId of availableActions) {
       const meta = ACTION_METADATA[actionId];
       const label = labelOverrides?.[actionId] ?? meta.label;
-      let shortcut: string | undefined;
 
-      // Look up shortcut using the new namespaced action ID
-      const newActionId = OLD_TO_NEW_ACTION[actionId];
-      if (newActionId) {
-        const formatted = getShortcut(newActionId);
-        if (formatted) {
-          shortcut = formatted;
-        }
-      }
+      // Look up shortcut using the action ID directly (now namespaced)
+      const formatted = getShortcut(actionId);
+      const shortcut = formatted ?? undefined;
 
       items.push({ type: 'action', id: actionId, label, shortcut });
     }

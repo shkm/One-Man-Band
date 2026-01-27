@@ -50,7 +50,7 @@ export function DeleteWorktreeModal({
   const executionSteps = useMemo(() => {
     const steps: Step[] = [
       { phase: 'stop-watcher', label: 'Stop file watcher' },
-      { phase: 'remove-worktree', label: 'Remove worktree' },
+      { phase: 'remove-worktree', label: 'Delete worktree' },
     ];
     if (deleteBranch) {
       steps.push({ phase: 'delete-local-branch', label: 'Delete local branch' });

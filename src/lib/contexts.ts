@@ -33,7 +33,10 @@ export type ContextFlag =
 
   // Entity state
   | 'hasMultipleEntities'
-  | 'hasPreviousView'
+
+  // Navigation history
+  | 'canGoBack'
+  | 'canGoForward'
 
   // Diff view
   | 'diffViewOpen'
@@ -76,8 +79,9 @@ export interface ContextState {
   // Entity counts
   openEntityCount: number;
 
-  // Navigation
-  hasPreviousView: boolean;
+  // Navigation history
+  canGoBack: boolean;
+  canGoForward: boolean;
 
   // Diff view
   isDiffViewOpen: boolean;
@@ -157,9 +161,12 @@ export function getActiveContexts(state: ContextState): ActiveContexts {
     contexts.add('hasMultipleEntities');
   }
 
-  // Navigation
-  if (state.hasPreviousView) {
-    contexts.add('hasPreviousView');
+  // Navigation history
+  if (state.canGoBack) {
+    contexts.add('canGoBack');
+  }
+  if (state.canGoForward) {
+    contexts.add('canGoForward');
   }
 
   // Diff view

@@ -5,7 +5,6 @@ import {
   getActionAvailability,
   getMenuAvailability,
   isActionAvailable,
-  menuIdToAction,
 } from '../lib/actions';
 
 // Handler functions for each action
@@ -16,7 +15,7 @@ export interface UseActionsResult {
   isAvailable: (actionId: ActionId) => boolean;
   /** Execute an action (returns false if not available) */
   execute: (actionId: ActionId) => boolean;
-  /** Execute an action by menu ID (returns false if not available or unknown) */
+  /** Execute an action by menu ID (menu IDs = action IDs in namespaced format) */
   executeByMenuId: (menuId: string) => boolean;
   /** Get availability map for all actions */
   availability: Record<ActionId, boolean>;
@@ -59,14 +58,10 @@ export function useActions(ctx: ActionContext, handlers: ActionHandlers): UseAct
     [ctx, handlers]
   );
 
-  // Execute action by menu ID
+  // Execute action by menu ID (direct passthrough since menu IDs = action IDs now)
   const executeByMenuId = useCallback(
     (menuId: string): boolean => {
-      const actionId = menuIdToAction(menuId);
-      if (!actionId) {
-        return false;
-      }
-      return execute(actionId);
+      return execute(menuId as ActionId);
     },
     [execute]
   );

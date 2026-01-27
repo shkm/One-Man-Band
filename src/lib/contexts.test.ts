@@ -21,7 +21,9 @@ const emptyState: ContextState = {
   isProjectSwitcherOpen: false,
   hasOpenModal: false,
   openEntityCount: 0,
-  hasPreviousView: false,
+  canGoBack: false,
+  canGoForward: false,
+  isDiffViewOpen: false,
 };
 
 describe('getActiveContexts', () => {
@@ -242,13 +244,31 @@ describe('getActiveContexts', () => {
     });
   });
 
-  describe('navigation', () => {
-    it('includes hasPreviousView when previous view exists', () => {
+  describe('navigation history', () => {
+    it('includes canGoBack when can go back in history', () => {
       const contexts = getActiveContexts({
         ...emptyState,
-        hasPreviousView: true,
+        canGoBack: true,
       });
-      expect(contexts.has('hasPreviousView')).toBe(true);
+      expect(contexts.has('canGoBack')).toBe(true);
+    });
+
+    it('includes canGoForward when can go forward in history', () => {
+      const contexts = getActiveContexts({
+        ...emptyState,
+        canGoForward: true,
+      });
+      expect(contexts.has('canGoForward')).toBe(true);
+    });
+  });
+
+  describe('diff view', () => {
+    it('includes diffViewOpen when viewing diff', () => {
+      const contexts = getActiveContexts({
+        ...emptyState,
+        isDiffViewOpen: true,
+      });
+      expect(contexts.has('diffViewOpen')).toBe(true);
     });
   });
 });

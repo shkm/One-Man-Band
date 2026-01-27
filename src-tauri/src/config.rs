@@ -629,6 +629,8 @@ pub fn shortcut_to_accelerator(shortcut: &str) -> String {
                 ";" => ";".to_string(),
                 "=" => "=".to_string(),
                 "-" => "-".to_string(),
+                "[" => "[".to_string(),
+                "]" => "]".to_string(),
                 "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" => part.to_string(),
                 // Fallback
                 _ => part.to_string(),
@@ -639,71 +641,90 @@ pub fn shortcut_to_accelerator(shortcut: &str) -> String {
 }
 
 /// Keyboard shortcut mappings configuration
+/// Field names use namespaced format matching action IDs (e.g., "app::addProject")
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct MappingsConfig {
     // App actions
+    #[serde(rename = "app::quit")]
     pub quit: Shortcut,
-    #[serde(rename = "addProject")]
+    #[serde(rename = "app::addProject")]
     pub add_project: Shortcut,
-    #[serde(rename = "projectSwitcher")]
+    #[serde(rename = "palette::projectSwitcher")]
     pub project_switcher: Shortcut,
 
     // Session/Tab actions
-    #[serde(rename = "newWorkspace")]
+    #[serde(rename = "worktree::new")]
     pub new_workspace: Shortcut,
-    #[serde(rename = "newScratchTerminal")]
+    #[serde(rename = "scratch::new")]
     pub new_scratch_terminal: Shortcut,
-    #[serde(rename = "newTab")]
+    #[serde(rename = "session::newTab")]
     pub new_tab: Shortcut,
-    #[serde(rename = "closeTab")]
+    #[serde(rename = "session::closeTab")]
     pub close_tab: Shortcut,
 
     // View actions
-    #[serde(rename = "toggleDrawer")]
+    #[serde(rename = "drawer::toggle")]
     pub toggle_drawer: Shortcut,
-    #[serde(rename = "toggleRightPanel")]
+    #[serde(rename = "rightPanel::toggle")]
     pub toggle_right_panel: Shortcut,
-    #[serde(rename = "expandDrawer")]
+    #[serde(rename = "drawer::expand")]
     pub expand_drawer: Shortcut,
-    #[serde(rename = "commandPalette")]
+    #[serde(rename = "palette::toggle")]
     pub command_palette: Shortcut,
-    #[serde(rename = "zoomIn")]
+    #[serde(rename = "view::zoomIn")]
     pub zoom_in: Shortcut,
-    #[serde(rename = "zoomOut")]
+    #[serde(rename = "view::zoomOut")]
     pub zoom_out: Shortcut,
-    #[serde(rename = "zoomReset")]
+    #[serde(rename = "view::zoomReset")]
     pub zoom_reset: Shortcut,
 
     // Navigation
-    #[serde(rename = "worktreePrev")]
-    pub worktree_prev: Shortcut,
-    #[serde(rename = "worktreeNext")]
-    pub worktree_next: Shortcut,
-    #[serde(rename = "previousView")]
-    pub previous_view: Shortcut,
-    #[serde(rename = "switchFocus")]
+    #[serde(rename = "navigate::prev")]
+    pub navigate_prev: Shortcut,
+    #[serde(rename = "navigate::next")]
+    pub navigate_next: Shortcut,
+    #[serde(rename = "navigate::back")]
+    pub navigate_back: Shortcut,
+    #[serde(rename = "navigate::forward")]
+    pub navigate_forward: Shortcut,
+    #[serde(rename = "focus::switch")]
     pub switch_focus: Shortcut,
 
+    // Diff navigation
+    #[serde(rename = "diff::nextFile")]
+    pub next_changed_file: Shortcut,
+    #[serde(rename = "diff::prevFile")]
+    pub prev_changed_file: Shortcut,
+
     // Session navigation (sidebar)
+    #[serde(rename = "navigate::toEntity1")]
     pub session1: Shortcut,
+    #[serde(rename = "navigate::toEntity2")]
     pub session2: Shortcut,
+    #[serde(rename = "navigate::toEntity3")]
     pub session3: Shortcut,
+    #[serde(rename = "navigate::toEntity4")]
     pub session4: Shortcut,
+    #[serde(rename = "navigate::toEntity5")]
     pub session5: Shortcut,
+    #[serde(rename = "navigate::toEntity6")]
     pub session6: Shortcut,
+    #[serde(rename = "navigate::toEntity7")]
     pub session7: Shortcut,
+    #[serde(rename = "navigate::toEntity8")]
     pub session8: Shortcut,
+    #[serde(rename = "navigate::toEntity9")]
     pub session9: Shortcut,
 
     // Worktree actions
-    #[serde(rename = "renameBranch")]
+    #[serde(rename = "worktree::renameBranch")]
     pub rename_branch: Shortcut,
 
     // Tasks
-    #[serde(rename = "runTask")]
+    #[serde(rename = "task::run")]
     pub run_task: Shortcut,
-    #[serde(rename = "taskSwitcher")]
+    #[serde(rename = "task::switcher")]
     pub task_switcher: Shortcut,
 }
 
@@ -767,19 +788,33 @@ impl Default for MappingsConfig {
             },
 
             // Navigation
-            worktree_prev: Shortcut::Platform {
+            navigate_prev: Shortcut::Platform {
                 mac: "ctrl+cmd+k".to_string(),
                 other: "ctrl+shift+k".to_string(),
             },
-            worktree_next: Shortcut::Platform {
+            navigate_next: Shortcut::Platform {
                 mac: "ctrl+cmd+j".to_string(),
                 other: "ctrl+shift+j".to_string(),
             },
-            previous_view: Shortcut::Platform {
-                mac: "cmd+'".to_string(),
-                other: "ctrl+'".to_string(),
+            navigate_back: Shortcut::Platform {
+                mac: "cmd+[".to_string(),
+                other: "ctrl+[".to_string(),
+            },
+            navigate_forward: Shortcut::Platform {
+                mac: "cmd+]".to_string(),
+                other: "ctrl+]".to_string(),
             },
             switch_focus: Shortcut::Universal("ctrl+\\".to_string()),
+
+            // Diff navigation
+            next_changed_file: Shortcut::Platform {
+                mac: "cmd+j".to_string(),
+                other: "ctrl+j".to_string(),
+            },
+            prev_changed_file: Shortcut::Platform {
+                mac: "cmd+k".to_string(),
+                other: "ctrl+k".to_string(),
+            },
 
             // Session navigation (sidebar) - these use ctrl+cmd on mac
             session1: Shortcut::Platform {
@@ -1067,6 +1102,8 @@ mod tests {
             assert_eq!(shortcut_to_accelerator("cmd+'"), "Cmd+'");
             assert_eq!(shortcut_to_accelerator("ctrl+\\"), "Ctrl+\\");
             assert_eq!(shortcut_to_accelerator("cmd+;"), "Cmd+;");
+            assert_eq!(shortcut_to_accelerator("cmd+["), "Cmd+[");
+            assert_eq!(shortcut_to_accelerator("cmd+]"), "Cmd+]");
         }
 
         #[test]
@@ -1161,8 +1198,8 @@ mod tests {
             assert!(!mappings.close_tab.for_current_platform().is_empty());
 
             // Navigation
-            assert!(!mappings.worktree_prev.for_current_platform().is_empty());
-            assert!(!mappings.worktree_next.for_current_platform().is_empty());
+            assert!(!mappings.navigate_prev.for_current_platform().is_empty());
+            assert!(!mappings.navigate_next.for_current_platform().is_empty());
 
             // Session navigation
             assert!(!mappings.session1.for_current_platform().is_empty());
@@ -1170,13 +1207,13 @@ mod tests {
         }
 
         #[test]
-        fn worktree_nav_uses_ctrl_cmd_on_mac() {
+        fn navigate_uses_ctrl_cmd_on_mac() {
             let mappings = MappingsConfig::default();
 
-            if let Shortcut::Platform { mac, .. } = &mappings.worktree_next {
+            if let Shortcut::Platform { mac, .. } = &mappings.navigate_next {
                 assert!(mac.contains("ctrl+cmd"), "Expected ctrl+cmd in mac shortcut, got: {}", mac);
             } else {
-                panic!("Expected Platform shortcut for worktree_next");
+                panic!("Expected Platform shortcut for navigate_next");
             }
         }
 
@@ -1184,7 +1221,7 @@ mod tests {
         fn deserializes_from_json() {
             let json = r#"{
                 "quit": "cmd+q",
-                "addProject": { "mac": "cmd+o", "other": "ctrl+o" }
+                "app::addProject": { "mac": "cmd+o", "other": "ctrl+o" }
             }"#;
 
             let mappings: MappingsConfig = serde_json::from_str(json).unwrap();

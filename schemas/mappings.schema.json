@@ -88,7 +88,9 @@
         "projectSwitcherOpen",
         "modalOpen",
         "hasMultipleEntities",
-        "hasPreviousView"
+        "canGoBack",
+        "canGoForward",
+        "diffViewOpen"
       ]
     },
     "actionNamespace": {
@@ -96,18 +98,20 @@
       "description": "Action namespace",
       "enum": [
         "app",
+        "diff",
         "drawer",
-        "scratch",
-        "worktree",
-        "project",
-        "navigate",
         "focus",
-        "view",
+        "modal",
+        "navigate",
         "palette",
+        "project",
+        "rightPanel",
+        "scratch",
+        "session",
         "task",
         "terminal",
-        "modal",
-        "rightPanel"
+        "view",
+        "worktree"
       ]
     }
   }

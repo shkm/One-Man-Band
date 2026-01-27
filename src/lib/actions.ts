@@ -12,57 +12,66 @@
  * - Command palette: lists available actions with labels and shortcuts
  */
 
-// All possible actions in the app
+// All possible actions in the app (namespaced format)
 export type ActionId =
-  // File menu
-  | 'addProject'
-  | 'switchProject'
-  | 'newWorktree'
-  | 'newScratchTerminal'
-  | 'newTab'
-  | 'closeTab'
-  | 'openInFinder'
-  | 'openInTerminal'
-  | 'openInEditor'
-  | 'openSettings'
-  | 'openMappings'
-  | 'closeProject'
-  // View menu
-  | 'commandPalette'
-  | 'toggleDrawer'
-  | 'expandDrawer'
-  | 'toggleRightPanel'
-  | 'zoomIn'
-  | 'zoomOut'
-  | 'zoomReset'
-  // Navigate menu
-  | 'sessionPrev'
-  | 'sessionNext'
-  | 'previousView'
-  | 'switchFocus'
-  | 'session1'
-  | 'session2'
-  | 'session3'
-  | 'session4'
-  | 'session5'
-  | 'session6'
-  | 'session7'
-  | 'session8'
-  | 'session9'
-  | 'renameBranch'
-  | 'renameSession'
-  | 'mergeWorktree'
-  | 'deleteWorktree'
+  // App actions
+  | 'app::quit'
+  | 'app::addProject'
+  | 'app::openInFinder'
+  | 'app::openInTerminal'
+  | 'app::openInEditor'
+  | 'app::openSettings'
+  | 'app::openMappings'
+  | 'app::helpDocs'
+  | 'app::helpReportIssue'
+  | 'app::helpReleaseNotes'
+  // Palette actions
+  | 'palette::toggle'
+  | 'palette::projectSwitcher'
+  // Session actions
+  | 'session::newTab'
+  | 'session::closeTab'
+  // Worktree actions
+  | 'worktree::new'
+  | 'worktree::renameBranch'
+  | 'worktree::merge'
+  | 'worktree::delete'
+  // Scratch actions
+  | 'scratch::new'
+  | 'scratch::renameSession'
+  // Project actions
+  | 'project::close'
+  // Drawer actions
+  | 'drawer::toggle'
+  | 'drawer::expand'
+  // Right panel actions
+  | 'rightPanel::toggle'
+  // View actions
+  | 'view::zoomIn'
+  | 'view::zoomOut'
+  | 'view::zoomReset'
+  // Navigate actions
+  | 'navigate::prev'
+  | 'navigate::next'
+  | 'navigate::back'
+  | 'navigate::forward'
+  | 'navigate::toEntity1'
+  | 'navigate::toEntity2'
+  | 'navigate::toEntity3'
+  | 'navigate::toEntity4'
+  | 'navigate::toEntity5'
+  | 'navigate::toEntity6'
+  | 'navigate::toEntity7'
+  | 'navigate::toEntity8'
+  | 'navigate::toEntity9'
+  // Focus actions
+  | 'focus::switch'
   // Diff navigation
-  | 'nextChangedFile'
-  | 'prevChangedFile'
-  // Tasks menu
-  | 'runTask'
-  | 'taskSwitcher'
-  // Help menu
-  | 'helpDocs'
-  | 'helpReportIssue'
-  | 'helpReleaseNotes';
+  | 'diff::nextFile'
+  | 'diff::prevFile'
+  // Task actions
+  | 'task::run'
+  | 'task::switcher';
 
 // State needed to evaluate action availability
 export interface ActionContext {
@@ -73,8 +82,12 @@ export interface ActionContext {
   isDrawerOpen: boolean;
   isDrawerFocused: boolean;
   activeDrawerTabId: string | null;
-  openWorktreeCount: number;
-  previousView: unknown | null;
+  /** Number of open entities (scratch terminals + projects + worktrees) for navigation */
+  openEntityCount: number;
+  /** Whether we can navigate back in history */
+  canGoBack: boolean;
+  /** Whether we can navigate forward in history */
+  canGoForward: boolean;
   activeSelectedTask: string | null;
   taskCount: number;
   /** Whether the active tab is showing a diff view */
@@ -85,123 +98,77 @@ export interface ActionContext {
 
 // Availability predicates - THE source of truth for "can this action run?"
 const AVAILABILITY: Record<ActionId, (ctx: ActionContext) => boolean> = {
-  // File menu
-  addProject: () => true,
-  switchProject: () => true,
-  // newWorktree: available when Cmd+N creates a worktree (in project, not viewing scratch)
-  newWorktree: (ctx) => !!ctx.activeProjectId && !ctx.activeScratchId,
-  // newScratchTerminal: always available (has dedicated Cmd+Shift+N shortcut)
-  newScratchTerminal: () => true,
-  // newTab: available when there's an active session (entity)
-  newTab: (ctx) => !!ctx.activeEntityId,
-  closeTab: (ctx) => (ctx.isDrawerOpen && !!ctx.activeDrawerTabId) || !!ctx.activeEntityId,
-  openInFinder: (ctx) => !!ctx.activeEntityId,
-  openInTerminal: (ctx) => !!ctx.activeEntityId,
-  openInEditor: (ctx) => !!ctx.activeEntityId,
-  openSettings: () => true,
-  openMappings: () => true,
-  closeProject: (ctx) => !!ctx.activeProjectId && !ctx.activeWorktreeId,
+  // App actions
+  'app::quit': () => true,
+  'app::addProject': () => true,
+  'app::openInFinder': (ctx) => !!ctx.activeEntityId,
+  'app::openInTerminal': (ctx) => !!ctx.activeEntityId,
+  'app::openInEditor': (ctx) => !!ctx.activeEntityId,
+  'app::openSettings': () => true,
+  'app::openMappings': () => true,
+  'app::helpDocs': () => true,
+  'app::helpReportIssue': () => true,
+  'app::helpReleaseNotes': () => true,
 
-  // View menu
-  commandPalette: () => true,
-  toggleDrawer: (ctx) => !!ctx.activeEntityId,
-  expandDrawer: (ctx) => !!ctx.activeEntityId && ctx.isDrawerOpen,
-  toggleRightPanel: (ctx) => !!ctx.activeEntityId,
-  zoomIn: () => true,
-  zoomOut: () => true,
-  zoomReset: () => true,
+  // Palette actions
+  'palette::toggle': () => true,
+  'palette::projectSwitcher': () => true,
 
-  // Navigate menu
-  sessionPrev: (ctx) => ctx.openWorktreeCount > 0,
-  sessionNext: (ctx) => ctx.openWorktreeCount > 0,
-  previousView: (ctx) => !!ctx.previousView,
-  switchFocus: (ctx) => !!ctx.activeEntityId,
-  session1: (ctx) => ctx.openWorktreeCount >= 1,
-  session2: (ctx) => ctx.openWorktreeCount >= 2,
-  session3: (ctx) => ctx.openWorktreeCount >= 3,
-  session4: (ctx) => ctx.openWorktreeCount >= 4,
-  session5: (ctx) => ctx.openWorktreeCount >= 5,
-  session6: (ctx) => ctx.openWorktreeCount >= 6,
-  session7: (ctx) => ctx.openWorktreeCount >= 7,
-  session8: (ctx) => ctx.openWorktreeCount >= 8,
-  session9: (ctx) => ctx.openWorktreeCount >= 9,
-  renameBranch: (ctx) => !!ctx.activeWorktreeId,
-  renameSession: (ctx) => !!ctx.activeScratchId,
-  mergeWorktree: (ctx) => !!ctx.activeWorktreeId,
-  deleteWorktree: (ctx) => !!ctx.activeWorktreeId,
+  // Session actions
+  'session::newTab': (ctx) => !!ctx.activeEntityId,
+  'session::closeTab': (ctx) => (ctx.isDrawerOpen && !!ctx.activeDrawerTabId) || !!ctx.activeEntityId,
+
+  // Worktree actions
+  'worktree::new': (ctx) => !!ctx.activeProjectId && !ctx.activeScratchId,
+  'worktree::renameBranch': (ctx) => !!ctx.activeWorktreeId,
+  'worktree::merge': (ctx) => !!ctx.activeWorktreeId,
+  'worktree::delete': (ctx) => !!ctx.activeWorktreeId,
+
+  // Scratch actions
+  'scratch::new': () => true,
+  'scratch::renameSession': (ctx) => !!ctx.activeScratchId,
+
+  // Project actions
+  'project::close': (ctx) => !!ctx.activeProjectId && !ctx.activeWorktreeId,
+
+  // Drawer actions
+  'drawer::toggle': (ctx) => !!ctx.activeEntityId,
+  'drawer::expand': (ctx) => !!ctx.activeEntityId && ctx.isDrawerOpen,
+
+  // Right panel actions
+  'rightPanel::toggle': (ctx) => !!ctx.activeEntityId,
+
+  // View actions
+  'view::zoomIn': () => true,
+  'view::zoomOut': () => true,
+  'view::zoomReset': () => true,
+
+  // Navigate actions
+  'navigate::prev': (ctx) => ctx.openEntityCount > 0,
+  'navigate::next': (ctx) => ctx.openEntityCount > 0,
+  'navigate::back': (ctx) => ctx.canGoBack,
+  'navigate::forward': (ctx) => ctx.canGoForward,
+  'navigate::toEntity1': (ctx) => ctx.openEntityCount >= 1,
+  'navigate::toEntity2': (ctx) => ctx.openEntityCount >= 2,
+  'navigate::toEntity3': (ctx) => ctx.openEntityCount >= 3,
+  'navigate::toEntity4': (ctx) => ctx.openEntityCount >= 4,
+  'navigate::toEntity5': (ctx) => ctx.openEntityCount >= 5,
+  'navigate::toEntity6': (ctx) => ctx.openEntityCount >= 6,
+  'navigate::toEntity7': (ctx) => ctx.openEntityCount >= 7,
+  'navigate::toEntity8': (ctx) => ctx.openEntityCount >= 8,
+  'navigate::toEntity9': (ctx) => ctx.openEntityCount >= 9,
+
+  // Focus actions
+  'focus::switch': (ctx) => !!ctx.activeEntityId,
 
   // Diff navigation (available when viewing diff with multiple files)
-  nextChangedFile: (ctx) => ctx.isViewingDiff && ctx.changedFilesCount > 1,
-  prevChangedFile: (ctx) => ctx.isViewingDiff && ctx.changedFilesCount > 1,
+  'diff::nextFile': (ctx) => ctx.isViewingDiff && ctx.changedFilesCount > 1,
+  'diff::prevFile': (ctx) => ctx.isViewingDiff && ctx.changedFilesCount > 1,
 
-  // Tasks menu
-  runTask: (ctx) => !!ctx.activeEntityId && !!ctx.activeSelectedTask,
-  taskSwitcher: (ctx) => ctx.taskCount > 0,
-
-  // Help menu (always available)
-  helpDocs: () => true,
-  helpReportIssue: () => true,
-  helpReleaseNotes: () => true,
+  // Task actions
+  'task::run': (ctx) => !!ctx.activeEntityId && !!ctx.activeSelectedTask,
+  'task::switcher': (ctx) => ctx.taskCount > 0,
 };
-
-// Map from ActionId to menu item ID (they're mostly the same, but with different casing)
-const ACTION_TO_MENU_ID: Record<ActionId, string> = {
-  addProject: 'add_project',
-  switchProject: 'switch_project',
-  newWorktree: 'new_worktree',
-  newScratchTerminal: 'new_scratch_terminal',
-  newTab: 'new_tab',
-  closeTab: 'close_tab',
-  openInFinder: 'open_in_finder',
-  openInTerminal: 'open_in_terminal',
-  openInEditor: 'open_in_editor',
-  openSettings: 'open_settings',
-  openMappings: 'open_mappings',
-  closeProject: 'close_project',
-  commandPalette: 'command_palette',
-  toggleDrawer: 'toggle_drawer',
-  expandDrawer: 'expand_drawer',
-  toggleRightPanel: 'toggle_right_panel',
-  zoomIn: 'zoom_in',
-  zoomOut: 'zoom_out',
-  zoomReset: 'zoom_reset',
-  sessionPrev: 'session_prev',
-  sessionNext: 'session_next',
-  previousView: 'previous_view',
-  switchFocus: 'switch_focus',
-  session1: 'session1',
-  session2: 'session2',
-  session3: 'session3',
-  session4: 'session4',
-  session5: 'session5',
-  session6: 'session6',
-  session7: 'session7',
-  session8: 'session8',
-  session9: 'session9',
-  renameBranch: 'rename_branch',
-  renameSession: 'rename_session',
-  mergeWorktree: 'merge_worktree',
-  deleteWorktree: 'delete_worktree',
-  nextChangedFile: 'next_changed_file',
-  prevChangedFile: 'prev_changed_file',
-  runTask: 'run_task',
-  taskSwitcher: 'task_switcher',
-  helpDocs: 'help_docs',
-  helpReportIssue: 'help_report_issue',
-  helpReleaseNotes: 'help_release_notes',
-};
-
-// Reverse map: menu ID to ActionId
-const MENU_ID_TO_ACTION: Record<string, ActionId> = Object.fromEntries(
-  Object.entries(ACTION_TO_MENU_ID).map(([action, menuId]) => [menuId, action as ActionId])
-) as Record<string, ActionId>;
-
-/**
- * Convert a menu item ID to an ActionId
- */
-export function menuIdToAction(menuId: string): ActionId | undefined {
-  return MENU_ID_TO_ACTION[menuId];
-}
 
 /**
  * Check if a specific action is available given the current context
@@ -223,85 +190,99 @@ export function getActionAvailability(ctx: ActionContext): Record<ActionId, bool
 }
 
 /**
- * Get action availability formatted for the menu bar (using menu item IDs)
+ * Get action availability formatted for the menu bar
+ * Menu IDs are now the same as action IDs (namespaced format)
  */
 export function getMenuAvailability(ctx: ActionContext): Record<string, boolean> {
-  const result: Record<string, boolean> = {};
-  for (const [actionId, predicate] of Object.entries(AVAILABILITY)) {
-    const menuId = ACTION_TO_MENU_ID[actionId as ActionId];
-    result[menuId] = predicate(ctx);
-  }
-  return result;
+  return getActionAvailability(ctx);
 }
 
 // ============================================================================
 // Action Metadata for Command Palette
 // ============================================================================
 
-export type ActionCategory = 'File' | 'View' | 'Navigate' | 'Tasks' | 'Help';
+export type ActionCategory = 'File' | 'View' | 'Navigate' | 'Diff' | 'Tasks' | 'Help';
 
 export interface ActionMetadata {
   label: string;
   category: ActionCategory;
-  /** Whether to show in command palette (excludes worktree1-9) */
+  /** Whether to show in command palette (excludes navigate::toEntity1-9) */
   showInPalette: boolean;
 }
 
 /** Metadata for each action - labels and categories */
 export const ACTION_METADATA: Record<ActionId, ActionMetadata> = {
-  // File menu
-  addProject: { label: 'Add Project', category: 'File', showInPalette: true },
-  switchProject: { label: 'Switch Project', category: 'File', showInPalette: true },
-  newWorktree: { label: 'New Worktree', category: 'File', showInPalette: true },
-  newScratchTerminal: { label: 'New Scratch Terminal', category: 'File', showInPalette: true },
-  newTab: { label: 'New Tab', category: 'File', showInPalette: true },
-  closeTab: { label: 'Close', category: 'File', showInPalette: true },
-  openInFinder: { label: 'Open in File Manager', category: 'File', showInPalette: true },
-  openInTerminal: { label: 'Open in Terminal', category: 'File', showInPalette: true },
-  openInEditor: { label: 'Open in Editor', category: 'File', showInPalette: true },
-  openSettings: { label: 'Open Settings', category: 'File', showInPalette: true },
-  openMappings: { label: 'Open Mappings', category: 'File', showInPalette: true },
-  closeProject: { label: 'Close Project', category: 'File', showInPalette: true },
+  // App actions
+  'app::quit': { label: 'Quit', category: 'File', showInPalette: false },
+  'app::addProject': { label: 'Open Project', category: 'File', showInPalette: true },
+  'app::openInFinder': { label: 'Open in File Manager', category: 'File', showInPalette: true },
+  'app::openInTerminal': { label: 'Open in Terminal', category: 'File', showInPalette: true },
+  'app::openInEditor': { label: 'Open in Editor', category: 'File', showInPalette: true },
+  'app::openSettings': { label: 'Open Settings', category: 'File', showInPalette: true },
+  'app::openMappings': { label: 'Open Mappings', category: 'File', showInPalette: true },
+  'app::helpDocs': { label: 'Help', category: 'Help', showInPalette: true },
+  'app::helpReportIssue': { label: 'Report Issue', category: 'Help', showInPalette: true },
+  'app::helpReleaseNotes': { label: 'Release Notes', category: 'Help', showInPalette: true },
 
-  // View menu
-  commandPalette: { label: 'Command Palette', category: 'View', showInPalette: false },
-  toggleDrawer: { label: 'Toggle Drawer', category: 'View', showInPalette: true },
-  expandDrawer: { label: 'Expand Drawer', category: 'View', showInPalette: true },
-  toggleRightPanel: { label: 'Toggle Changed Files', category: 'View', showInPalette: true },
-  zoomIn: { label: 'Zoom In', category: 'View', showInPalette: true },
-  zoomOut: { label: 'Zoom Out', category: 'View', showInPalette: true },
-  zoomReset: { label: 'Reset Zoom', category: 'View', showInPalette: true },
+  // Palette actions
+  'palette::toggle': { label: 'Command Palette', category: 'View', showInPalette: false },
+  'palette::projectSwitcher': { label: 'Switch Project', category: 'File', showInPalette: true },
 
-  // Navigate menu (session navigation)
-  sessionPrev: { label: 'Previous Session', category: 'Navigate', showInPalette: true },
-  sessionNext: { label: 'Next Session', category: 'Navigate', showInPalette: true },
-  previousView: { label: 'Previous Session', category: 'Navigate', showInPalette: true },
-  switchFocus: { label: 'Switch Focus', category: 'Navigate', showInPalette: true },
+  // Session actions
+  'session::newTab': { label: 'New Tab', category: 'File', showInPalette: true },
+  'session::closeTab': { label: 'Close', category: 'File', showInPalette: true },
+
+  // Worktree actions
+  'worktree::new': { label: 'New Worktree', category: 'File', showInPalette: true },
+  'worktree::renameBranch': { label: 'Rename Branch', category: 'Navigate', showInPalette: true },
+  'worktree::merge': { label: 'Merge Worktree', category: 'Navigate', showInPalette: true },
+  'worktree::delete': { label: 'Delete Worktree', category: 'Navigate', showInPalette: true },
+
+  // Scratch actions
+  'scratch::new': { label: 'New Scratch Terminal', category: 'File', showInPalette: true },
+  'scratch::renameSession': { label: 'Rename Session', category: 'Navigate', showInPalette: true },
+
+  // Project actions
+  'project::close': { label: 'Close Project', category: 'File', showInPalette: true },
+
+  // Drawer actions
+  'drawer::toggle': { label: 'Toggle Drawer', category: 'View', showInPalette: true },
+  'drawer::expand': { label: 'Expand Drawer', category: 'View', showInPalette: true },
+
+  // Right panel actions
+  'rightPanel::toggle': { label: 'Toggle Changed Files', category: 'View', showInPalette: true },
+
+  // View actions
+  'view::zoomIn': { label: 'Zoom In', category: 'View', showInPalette: true },
+  'view::zoomOut': { label: 'Zoom Out', category: 'View', showInPalette: true },
+  'view::zoomReset': { label: 'Reset Zoom', category: 'View', showInPalette: true },
+
+  // Navigate actions
+  'navigate::prev': { label: 'Previous Session', category: 'Navigate', showInPalette: true },
+  'navigate::next': { label: 'Next Session', category: 'Navigate', showInPalette: true },
+  'navigate::back': { label: 'Go Back', category: 'Navigate', showInPalette: true },
+  'navigate::forward': { label: 'Go Forward', category: 'Navigate', showInPalette: true },
   // Session 1-9 are hidden from palette (clutter, rarely used via palette)
-  session1: { label: 'Go to Session 1', category: 'Navigate', showInPalette: false },
-  session2: { label: 'Go to Session 2', category: 'Navigate', showInPalette: false },
-  session3: { label: 'Go to Session 3', category: 'Navigate', showInPalette: false },
-  session4: { label: 'Go to Session 4', category: 'Navigate', showInPalette: false },
-  session5: { label: 'Go to Session 5', category: 'Navigate', showInPalette: false },
-  session6: { label: 'Go to Session 6', category: 'Navigate', showInPalette: false },
-  session7: { label: 'Go to Session 7', category: 'Navigate', showInPalette: false },
-  session8: { label: 'Go to Session 8', category: 'Navigate', showInPalette: false },
-  session9: { label: 'Go to Session 9', category: 'Navigate', showInPalette: false },
-  renameBranch: { label: 'Rename Branch', category: 'Navigate', showInPalette: true },
-  renameSession: { label: 'Rename Session', category: 'Navigate', showInPalette: true },
-  mergeWorktree: { label: 'Merge Worktree', category: 'Navigate', showInPalette: true },
-  deleteWorktree: { label: 'Delete Worktree', category: 'Navigate', showInPalette: true },
-  nextChangedFile: { label: 'Next Changed File', category: 'Navigate', showInPalette: true },
-  prevChangedFile: { label: 'Previous Changed File', category: 'Navigate', showInPalette: true },
+  'navigate::toEntity1': { label: 'Go to Session 1', category: 'Navigate', showInPalette: false },
+  'navigate::toEntity2': { label: 'Go to Session 2', category: 'Navigate', showInPalette: false },
+  'navigate::toEntity3': { label: 'Go to Session 3', category: 'Navigate', showInPalette: false },
+  'navigate::toEntity4': { label: 'Go to Session 4', category: 'Navigate', showInPalette: false },
+  'navigate::toEntity5': { label: 'Go to Session 5', category: 'Navigate', showInPalette: false },
+  'navigate::toEntity6': { label: 'Go to Session 6', category: 'Navigate', showInPalette: false },
+  'navigate::toEntity7': { label: 'Go to Session 7', category: 'Navigate', showInPalette: false },
+  'navigate::toEntity8': { label: 'Go to Session 8', category: 'Navigate', showInPalette: false },
+  'navigate::toEntity9': { label: 'Go to Session 9', category: 'Navigate', showInPalette: false },
 
-  // Tasks menu
-  runTask: { label: 'Run Task', category: 'Tasks', showInPalette: true },
-  taskSwitcher: { label: 'Task Switcher', category: 'Tasks', showInPalette: true },
+  // Focus actions
+  'focus::switch': { label: 'Switch Focus', category: 'Navigate', showInPalette: true },
 
-  // Help menu
-  helpDocs: { label: 'Help', category: 'Help', showInPalette: true },
-  helpReportIssue: { label: 'Report Issue', category: 'Help', showInPalette: true },
-  helpReleaseNotes: { label: 'Release Notes', category: 'Help', showInPalette: true },
+  // Diff navigation
+  'diff::nextFile': { label: 'Next Changed File', category: 'Diff', showInPalette: true },
+  'diff::prevFile': { label: 'Previous Changed File', category: 'Diff', showInPalette: true },
+
+  // Task actions
+  'task::run': { label: 'Run Task', category: 'Tasks', showInPalette: true },
+  'task::switcher': { label: 'Task Switcher', category: 'Tasks', showInPalette: true },
 };
 
 /** Get actions that should appear in the command palette */

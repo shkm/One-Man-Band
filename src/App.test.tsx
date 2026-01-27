@@ -205,7 +205,7 @@ describe('App', () => {
 
       // Open project switcher via menu action
       await act(async () => {
-        emitEvent('menu-action', 'switch_project');
+        emitEvent('menu-action', 'palette::projectSwitcher');
       });
 
       // Wait for project switcher to open and show the closed project
@@ -390,7 +390,7 @@ describe('App', () => {
 
       // Open task switcher via menu action
       await act(async () => {
-        emitEvent('menu-action', 'task_switcher');
+        emitEvent('menu-action', 'task::switcher');
       });
 
       // Task switcher should open and show tasks
@@ -445,7 +445,7 @@ describe('App', () => {
 
       // Open task switcher
       await act(async () => {
-        emitEvent('menu-action', 'task_switcher');
+        emitEvent('menu-action', 'task::switcher');
       });
 
       await waitFor(() => {
@@ -590,7 +590,7 @@ describe('App', () => {
 
       // Open project switcher
       await act(async () => {
-        emitEvent('menu-action', 'switch_project');
+        emitEvent('menu-action', 'palette::projectSwitcher');
       });
 
       // Switcher should open
@@ -621,7 +621,7 @@ describe('App', () => {
 
       // Open project switcher
       await act(async () => {
-        emitEvent('menu-action', 'switch_project');
+        emitEvent('menu-action', 'palette::projectSwitcher');
       });
 
       await waitFor(() => {
@@ -665,7 +665,7 @@ describe('App', () => {
 
       // Open command palette via menu action
       await act(async () => {
-        emitEvent('menu-action', 'command_palette');
+        emitEvent('menu-action', 'palette::toggle');
       });
 
       // Command palette should open
@@ -702,7 +702,7 @@ describe('App', () => {
 
       // Open command palette
       await act(async () => {
-        emitEvent('menu-action', 'command_palette');
+        emitEvent('menu-action', 'palette::toggle');
       });
 
       await waitFor(() => {
@@ -747,7 +747,7 @@ describe('App', () => {
 
       // Open command palette
       await act(async () => {
-        emitEvent('menu-action', 'command_palette');
+        emitEvent('menu-action', 'palette::toggle');
       });
 
       await waitFor(() => {
@@ -926,7 +926,7 @@ describe('App', () => {
 
       // Trigger openInFinder via menu action
       await act(async () => {
-        emitEvent('menu-action', 'open_in_finder');
+        emitEvent('menu-action', 'app::openInFinder');
       });
 
       // Verify open_folder was called with the scratch terminal's cwd (home dir)
@@ -979,7 +979,7 @@ describe('App', () => {
 
       // Trigger openInFinder
       await act(async () => {
-        emitEvent('menu-action', 'open_in_finder');
+        emitEvent('menu-action', 'app::openInFinder');
       });
 
       // Verify open_folder was called with worktree path
@@ -1013,7 +1013,7 @@ describe('App', () => {
       invokeHistory.length = 0;
 
       await act(async () => {
-        emitEvent('menu-action', 'open_in_terminal');
+        emitEvent('menu-action', 'app::openInTerminal');
       });
 
       // Verify open_in_terminal was called with scratch cwd
@@ -1051,7 +1051,7 @@ describe('App', () => {
       invokeHistory.length = 0;
 
       await act(async () => {
-        emitEvent('menu-action', 'open_in_editor');
+        emitEvent('menu-action', 'app::openInEditor');
       });
 
       // Verify open_in_editor was called with scratch cwd

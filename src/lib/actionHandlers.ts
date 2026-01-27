@@ -58,6 +58,7 @@ export interface ActionHandlerCallbacks {
   onNavigatePrev: () => void;
   onNavigateNext: () => void;
   onNavigateBack: () => void;
+  onNavigateForward: () => void;
   onNavigateToEntity: (index: number) => void;
   onNavigateToProject: () => void;
 
@@ -149,6 +150,7 @@ export function createActionHandlers(callbacks: ActionHandlerCallbacks): ActionH
     'navigate::prev': callbacks.onNavigatePrev,
     'navigate::next': callbacks.onNavigateNext,
     'navigate::back': callbacks.onNavigateBack,
+    'navigate::forward': callbacks.onNavigateForward,
     'navigate::toProject': callbacks.onNavigateToProject,
     'navigate::toEntity1': () => callbacks.onNavigateToEntity(0),
     'navigate::toEntity2': () => callbacks.onNavigateToEntity(1),

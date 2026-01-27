@@ -16,6 +16,10 @@
     // ============================================================
     {
       "bindings": {
+        // App actions
+        "cmd-o": "app::addProject",
+
+        // Palette
         "cmd-shift-p": "palette::toggle",
         "cmd-shift-o": "palette::projectSwitcher"
       }
@@ -59,7 +63,10 @@
 
         // Focus
         "ctrl-\\": "focus::switch",
-        "cmd-'": "navigate::back",
+
+        // Navigation history (go back/forward like browser)
+        "cmd-[": "navigate::back",
+        "cmd-]": "navigate::forward",
 
         // Navigation (sidebar)
         "cmd-ctrl-k": "navigate::prev",

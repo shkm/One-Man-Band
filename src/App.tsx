@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { Group as PanelGroup, Panel, Separator as PanelResizeHandle, PanelImperativeHandle } from 'react-resizable-panels';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import { Sidebar } from './components/Sidebar/Sidebar';
 import { MainPane } from './components/MainPane/MainPane';
 import { RightPanel } from './components/RightPanel/RightPanel';
@@ -48,6 +49,9 @@ const MAX_ZOOM = 10; // maximum zoom level
 // Which pane has focus per worktree
 type FocusedPane = 'main' | 'drawer';
 
+// Navigation history entry
+type NavHistoryEntry = { worktreeId: string | null; projectId: string | null; scratchId: string | null };
+
 /** Substitute `{{ path }}` in a command template, or append path if no template. */
 function substitutePathTemplate(command: string, path: string): string {
   if (command.includes('{{ path }}')) {
@@ -77,8 +81,13 @@ function App() {
   // If activeWorktreeId is null and activeProjectId is set, we're viewing the project's main terminal
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
 
-  // Previous view state (for cmd+' to toggle back)
-  const [previousView, setPreviousView] = useState<{ worktreeId: string | null; projectId: string | null; scratchId: string | null } | null>(null);
+  // Navigation history for back/forward navigation
+  const [navHistory, setNavHistory] = useState<NavHistoryEntry[]>([]);
+  const [navHistoryIndex, setNavHistoryIndex] = useState(-1);
+
+  // Computed: can we go back/forward in history?
+  const canGoBack = navHistoryIndex > 0;
+  const canGoForward = navHistoryIndex < navHistory.length - 1;
 
   // Active scratch terminal (when viewing a scratch terminal instead of worktree/project)
   const [activeScratchId, setActiveScratchId] = useState<string | null>(null);
@@ -201,6 +210,50 @@ function App() {
   // Active entity ID - worktree takes precedence, then scratch, then project
   // This allows drawer/focus/task state to work for all views
   const activeEntityId = activeWorktreeId ?? activeScratchId ?? activeProjectId;
+
+  // Track previous view for navigation history
+  const prevViewRef = useRef<NavHistoryEntry | null>(null);
+
+  // Push to navigation history when view changes (user-initiated navigation)
+  useEffect(() => {
+    const currentView: NavHistoryEntry = {
+      worktreeId: activeWorktreeId,
+      projectId: activeProjectId,
+      scratchId: activeScratchId,
+    };
+
+    // Only push if this is a meaningful navigation (not initial load and view actually changed)
+    const prev = prevViewRef.current;
+    if (prev !== null) {
+      const viewChanged = prev.worktreeId !== currentView.worktreeId ||
+                          prev.projectId !== currentView.projectId ||
+                          prev.scratchId !== currentView.scratchId;
+
+      // Check if current is not in history already at current index (avoid duplication from back/forward)
+      const currentInHistory = navHistory[navHistoryIndex];
+      const isNavigatingHistory = currentInHistory &&
+        currentInHistory.worktreeId === currentView.worktreeId &&
+        currentInHistory.projectId === currentView.projectId &&
+        currentInHistory.scratchId === currentView.scratchId;
+
+      if (viewChanged && !isNavigatingHistory) {
+        // This is a user-initiated navigation, push to history
+        setNavHistory(prev => {
+          const truncated = prev.slice(0, navHistoryIndex + 1);
+          return [...truncated, currentView];
+        });
+        setNavHistoryIndex(prev => prev + 1);
+      }
+    } else {
+      // Initialize history with first view
+      if (activeEntityId) {
+        setNavHistory([currentView]);
+        setNavHistoryIndex(0);
+      }
+    }
+
+    prevViewRef.current = currentView;
+  }, [activeWorktreeId, activeProjectId, activeScratchId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Find the running task that matches the selected task (for TaskSelector controls)
   const activeRunningTask = useMemo(() => {
@@ -1323,42 +1376,65 @@ function App() {
     });
   }, [activeEntityId, focusStates, isDrawerOpen, drawerTabs, drawerTabCounters, dispatchPanelResizeComplete]);
 
-  // Switch to previous view (cmd+' toggle)
-  const handleSwitchToPreviousView = useCallback(() => {
-    if (!previousView) return;
+  // Navigate back in history (Cmd+[)
+  const handleNavigateBack = useCallback(() => {
+    if (!canGoBack) return;
 
-    // Check if previous view is still valid (worktree/project/scratch still exists and is open)
-    const prevWorktreeId = previousView.worktreeId;
-    const prevProjectId = previousView.projectId;
-    const prevScratchId = previousView.scratchId;
+    const targetIndex = navHistoryIndex - 1;
+    const targetEntry = navHistory[targetIndex];
+    if (!targetEntry) return;
 
-    // Save current view before switching
-    const currentView = { worktreeId: activeWorktreeId, projectId: activeProjectId, scratchId: activeScratchId };
+    // Validate target is still valid
+    const { worktreeId, projectId, scratchId } = targetEntry;
 
-    if (prevWorktreeId && openWorktreeIds.has(prevWorktreeId)) {
-      // Switch to previous worktree
-      setActiveWorktreeId(prevWorktreeId);
+    if (worktreeId && openWorktreeIds.has(worktreeId)) {
+      setActiveWorktreeId(worktreeId);
       setActiveScratchId(null);
-      // Update project context if needed
-      if (prevProjectId) {
-        setActiveProjectId(prevProjectId);
-      }
-      setPreviousView(currentView);
-    } else if (prevScratchId && scratchTerminals.some(s => s.id === prevScratchId)) {
-      // Switch to previous scratch terminal
+      if (projectId) setActiveProjectId(projectId);
+      setNavHistoryIndex(targetIndex);
+    } else if (scratchId && scratchTerminals.some(s => s.id === scratchId)) {
       setActiveWorktreeId(null);
       setActiveProjectId(null);
-      setActiveScratchId(prevScratchId);
-      setPreviousView(currentView);
-    } else if (prevProjectId && openProjectIds.has(prevProjectId)) {
-      // Switch to previous project view
+      setActiveScratchId(scratchId);
+      setNavHistoryIndex(targetIndex);
+    } else if (projectId && openProjectIds.has(projectId)) {
       setActiveWorktreeId(null);
       setActiveScratchId(null);
-      setActiveProjectId(prevProjectId);
-      setPreviousView(currentView);
+      setActiveProjectId(projectId);
+      setNavHistoryIndex(targetIndex);
     }
-    // If previous view is no longer valid, do nothing
-  }, [previousView, activeWorktreeId, activeProjectId, activeScratchId, openWorktreeIds, openProjectIds, scratchTerminals]);
+    // If target is invalid, don't navigate
+  }, [canGoBack, navHistoryIndex, navHistory, openWorktreeIds, openProjectIds, scratchTerminals]);
+
+  // Navigate forward in history (Cmd+])
+  const handleNavigateForward = useCallback(() => {
+    if (!canGoForward) return;
+
+    const targetIndex = navHistoryIndex + 1;
+    const targetEntry = navHistory[targetIndex];
+    if (!targetEntry) return;
+
+    // Validate target is still valid
+    const { worktreeId, projectId, scratchId } = targetEntry;
+
+    if (worktreeId && openWorktreeIds.has(worktreeId)) {
+      setActiveWorktreeId(worktreeId);
+      setActiveScratchId(null);
+      if (projectId) setActiveProjectId(projectId);
+      setNavHistoryIndex(targetIndex);
+    } else if (scratchId && scratchTerminals.some(s => s.id === scratchId)) {
+      setActiveWorktreeId(null);
+      setActiveProjectId(null);
+      setActiveScratchId(scratchId);
+      setNavHistoryIndex(targetIndex);
+    } else if (projectId && openProjectIds.has(projectId)) {
+      setActiveWorktreeId(null);
+      setActiveScratchId(null);
+      setActiveProjectId(projectId);
+      setNavHistoryIndex(targetIndex);
+    }
+    // If target is invalid, don't navigate
+  }, [canGoForward, navHistoryIndex, navHistory, openWorktreeIds, openProjectIds, scratchTerminals]);
 
   // Zoom handlers
   const handleZoomIn = useCallback(() => {
@@ -1842,10 +1918,7 @@ function App() {
     if (project) {
       // Update last accessed timestamp
       touchProject(project.id).catch(() => {});
-      // Save current view as previous before switching (only if actually changing)
-      if (activeWorktreeId !== worktree.id) {
-        setPreviousView({ worktreeId: activeWorktreeId, projectId: activeProjectId, scratchId: activeScratchId });
-      }
+      // Navigation history is handled by the useEffect that tracks view changes
       setActiveProjectId(project.id);
       // Auto-open project terminal so cmd+0 can switch to it
       setOpenProjectIds((prev) => {
@@ -1859,7 +1932,7 @@ function App() {
     });
     setActiveWorktreeId(worktree.id);
     setActiveScratchId(null);
-  }, [projects, activeWorktreeId, activeProjectId, activeScratchId]);
+  }, [projects]);
 
   const handleSelectProject = useCallback((project: Project) => {
     // Update last accessed timestamp
@@ -1869,13 +1942,12 @@ function App() {
       if (prev.has(project.id)) return prev;
       return new Set([...prev, project.id]);
     });
-    // Save current view as previous before switching
-    setPreviousView({ worktreeId: activeWorktreeId, projectId: activeProjectId, scratchId: activeScratchId });
+    // Navigation history is handled by the useEffect that tracks view changes
     // Clear worktree and scratch selection, set project as active
     setActiveWorktreeId(null);
     setActiveScratchId(null);
     setActiveProjectId(project.id);
-  }, [activeWorktreeId, activeProjectId, activeScratchId]);
+  }, []);
 
   // Scratch terminal handlers
   const handleAddScratchTerminal = useCallback(() => {
@@ -1884,22 +1956,19 @@ function App() {
       ? scratchCwds.get(activeSessionTabId)
       : undefined;
     const newScratch = addScratchTerminal(currentCwd);
+    // Navigation history is handled by the useEffect that tracks view changes
     // Select the new scratch terminal
-    setPreviousView({ worktreeId: activeWorktreeId, projectId: activeProjectId, scratchId: activeScratchId });
     setActiveWorktreeId(null);
     setActiveProjectId(null);
     setActiveScratchId(newScratch.id);
-  }, [addScratchTerminal, activeWorktreeId, activeProjectId, activeScratchId, activeSessionTabId, scratchCwds]);
+  }, [addScratchTerminal, activeScratchId, activeSessionTabId, scratchCwds]);
 
   const handleSelectScratch = useCallback((scratchId: string) => {
-    // Save current view as previous before switching
-    if (activeScratchId !== scratchId) {
-      setPreviousView({ worktreeId: activeWorktreeId, projectId: activeProjectId, scratchId: activeScratchId });
-    }
+    // Navigation history is handled by the useEffect that tracks view changes
     setActiveWorktreeId(null);
     setActiveProjectId(null);
     setActiveScratchId(scratchId);
-  }, [activeWorktreeId, activeProjectId, activeScratchId]);
+  }, []);
 
   const handleCloseScratch = useCallback((scratchId: string) => {
     // Clean up cwds for all tabs in this scratch session (cwds are keyed by tab ID)
@@ -2433,13 +2502,14 @@ function App() {
     isDrawerOpen,
     isDrawerFocused: activeFocusState === 'drawer',
     activeDrawerTabId,
-    openWorktreeCount: openWorktreesInOrder.length,
-    previousView,
+    openEntityCount: openEntitiesInOrder.length,
+    canGoBack,
+    canGoForward,
     activeSelectedTask,
     taskCount: config.tasks.length,
     isViewingDiff: activeDiffState.isViewingDiff,
     changedFilesCount: changedFiles.length,
-  }), [activeProjectId, activeWorktreeId, activeScratchId, activeEntityId, isDrawerOpen, activeFocusState, activeDrawerTabId, openWorktreesInOrder.length, previousView, activeSelectedTask, config.tasks.length, activeDiffState.isViewingDiff, changedFiles.length]);
+  }), [activeProjectId, activeWorktreeId, activeScratchId, activeEntityId, isDrawerOpen, activeFocusState, activeDrawerTabId, openEntitiesInOrder.length, canGoBack, canGoForward, activeSelectedTask, config.tasks.length, activeDiffState.isViewingDiff, changedFiles.length]);
 
   // Dynamic labels for command palette based on configured apps
   const commandPaletteLabelOverrides = useMemo(() => {
@@ -2450,13 +2520,13 @@ function App() {
     const editorCommand = getAppCommand(config.apps.editor);
 
     if (fileManagerCommand) {
-      overrides.openInFinder = `Open in ${fileManagerCommand}`;
+      overrides['app::openInFinder'] = `Open in ${fileManagerCommand}`;
     }
     if (terminalCommand) {
-      overrides.openInTerminal = `Open in ${terminalCommand}`;
+      overrides['app::openInTerminal'] = `Open in ${terminalCommand}`;
     }
     if (editorCommand) {
-      overrides.openInEditor = `Open in ${editorCommand}`;
+      overrides['app::openInEditor'] = `Open in ${editorCommand}`;
     }
 
     return overrides;
@@ -2494,14 +2564,18 @@ function App() {
     }
   }, [openEntitiesInOrder, projects]);
 
-  // Build the handlers for each action
+  // Build the handlers for each action (namespaced format)
   const actionHandlers: ActionHandlers = useMemo(() => ({
-    addProject: handleAddProject,
-    switchProject: handleToggleProjectSwitcher,
-    newWorktree: () => activeProjectId && handleAddWorktree(activeProjectId),
-    newScratchTerminal: handleAddScratchTerminal,
-    newTab: handleAddSessionTab,
-    closeTab: () => {
+    'app::quit': () => {
+      // Trigger graceful shutdown - same as menu quit
+      getCurrentWindow().emit('close-requested');
+    },
+    'app::addProject': handleAddProject,
+    'palette::projectSwitcher': handleToggleProjectSwitcher,
+    'worktree::new': () => activeProjectId && handleAddWorktree(activeProjectId),
+    'scratch::new': handleAddScratchTerminal,
+    'session::newTab': handleAddSessionTab,
+    'session::closeTab': () => {
       // Priority: drawer tab (if focused) > scratch terminal > worktree > project terminal
       if (isDrawerOpen && activeFocusState === 'drawer' && activeDrawerTabId) {
         handleCloseDrawerTab(activeDrawerTabId);
@@ -2513,7 +2587,7 @@ function App() {
         handleCloseProject(activeProjectId);
       }
     },
-    openInFinder: () => {
+    'app::openInFinder': () => {
       let path: string | undefined;
       if (activeWorktreeId) {
         path = projects.flatMap(p => p.worktrees).find(w => w.id === activeWorktreeId)?.path;
@@ -2524,7 +2598,7 @@ function App() {
       }
       if (path) invoke('open_folder', { path });
     },
-    openInTerminal: () => {
+    'app::openInTerminal': () => {
       const target = getAppTarget(config.apps.terminal);
       const command = getAppCommand(config.apps.terminal);
 
@@ -2553,7 +2627,7 @@ function App() {
         invoke('open_in_terminal', { path, app: command ?? null });
       }
     },
-    openInEditor: () => {
+    'app::openInEditor': () => {
       const command = getAppCommand(config.apps.editor);
       // Editor defaults to 'terminal' when not configured (same as Sidebar default)
       const target = config.apps.editor ? getAppTarget(config.apps.editor) : getAppTarget(undefined, 'terminal');
@@ -2591,7 +2665,7 @@ function App() {
         });
       }
     },
-    openSettings: () => {
+    'app::openSettings': () => {
       (async () => {
         const command = getAppCommand(config.apps.editor);
         const target = config.apps.editor ? getAppTarget(config.apps.editor) : getAppTarget(undefined, 'terminal');
@@ -2622,7 +2696,7 @@ function App() {
         }
       })();
     },
-    openMappings: () => {
+    'app::openMappings': () => {
       (async () => {
         const command = getAppCommand(config.apps.editor);
         const target = config.apps.editor ? getAppTarget(config.apps.editor) : getAppTarget(undefined, 'terminal');
@@ -2653,19 +2727,19 @@ function App() {
         }
       })();
     },
-    closeProject: () => {
+    'project::close': () => {
       if (activeProjectId && !activeWorktreeId) {
         handleCloseProject(activeProjectId);
       }
     },
-    commandPalette: handleToggleCommandPalette,
-    toggleDrawer: handleToggleDrawer,
-    expandDrawer: handleToggleDrawerExpand,
-    toggleRightPanel: handleToggleRightPanel,
-    zoomIn: handleZoomIn,
-    zoomOut: handleZoomOut,
-    zoomReset: handleZoomReset,
-    sessionPrev: () => {
+    'palette::toggle': handleToggleCommandPalette,
+    'drawer::toggle': handleToggleDrawer,
+    'drawer::expand': handleToggleDrawerExpand,
+    'rightPanel::toggle': handleToggleRightPanel,
+    'view::zoomIn': handleZoomIn,
+    'view::zoomOut': handleZoomOut,
+    'view::zoomReset': handleZoomReset,
+    'navigate::prev': () => {
       if (openEntitiesInOrder.length === 0) return;
       const currentIndex = getCurrentEntityIndex();
       const prevIndex = currentIndex !== -1
@@ -2673,7 +2747,7 @@ function App() {
         : openEntitiesInOrder.length - 1;
       selectEntityAtIndex(prevIndex);
     },
-    sessionNext: () => {
+    'navigate::next': () => {
       if (openEntitiesInOrder.length === 0) return;
       const currentIndex = getCurrentEntityIndex();
       const nextIndex = currentIndex !== -1
@@ -2681,29 +2755,36 @@ function App() {
         : 0;
       selectEntityAtIndex(nextIndex);
     },
-    previousView: handleSwitchToPreviousView,
-    switchFocus: handleSwitchFocus,
-    session1: () => selectEntityAtIndex(0),
-    session2: () => selectEntityAtIndex(1),
-    session3: () => selectEntityAtIndex(2),
-    session4: () => selectEntityAtIndex(3),
-    session5: () => selectEntityAtIndex(4),
-    session6: () => selectEntityAtIndex(5),
-    session7: () => selectEntityAtIndex(6),
-    session8: () => selectEntityAtIndex(7),
-    session9: () => selectEntityAtIndex(8),
-    renameBranch: () => activeWorktreeId && handleRenameBranch(activeWorktreeId),
-    mergeWorktree: () => activeWorktreeId && handleMergeWorktree(activeWorktreeId),
-    deleteWorktree: () => activeWorktreeId && handleDeleteWorktree(activeWorktreeId),
-    runTask: handleToggleTask,
-    taskSwitcher: handleToggleTaskSwitcher,
+    'navigate::back': handleNavigateBack,
+    'navigate::forward': handleNavigateForward,
+    'focus::switch': handleSwitchFocus,
+    'navigate::toEntity1': () => selectEntityAtIndex(0),
+    'navigate::toEntity2': () => selectEntityAtIndex(1),
+    'navigate::toEntity3': () => selectEntityAtIndex(2),
+    'navigate::toEntity4': () => selectEntityAtIndex(3),
+    'navigate::toEntity5': () => selectEntityAtIndex(4),
+    'navigate::toEntity6': () => selectEntityAtIndex(5),
+    'navigate::toEntity7': () => selectEntityAtIndex(6),
+    'navigate::toEntity8': () => selectEntityAtIndex(7),
+    'navigate::toEntity9': () => selectEntityAtIndex(8),
+    'worktree::renameBranch': () => activeWorktreeId && handleRenameBranch(activeWorktreeId),
+    'scratch::renameSession': () => {
+      if (activeScratchId) {
+        focusToRestoreRef.current = document.activeElement as HTMLElement | null;
+        setEditingScratchId(activeScratchId);
+      }
+    },
+    'worktree::merge': () => activeWorktreeId && handleMergeWorktree(activeWorktreeId),
+    'worktree::delete': () => activeWorktreeId && handleDeleteWorktree(activeWorktreeId),
+    'task::run': handleToggleTask,
+    'task::switcher': handleToggleTaskSwitcher,
     // Diff navigation
-    nextChangedFile: handleNextChangedFile,
-    prevChangedFile: handlePrevChangedFile,
+    'diff::nextFile': handleNextChangedFile,
+    'diff::prevFile': handlePrevChangedFile,
     // Help menu
-    helpDocs: () => openUrl('https://github.com/shkm/shellflow#readme'),
-    helpReportIssue: () => openUrl('https://github.com/shkm/shellflow/issues/new'),
-    helpReleaseNotes: () => openUrl('https://github.com/shkm/shellflow/releases'),
+    'app::helpDocs': () => openUrl('https://github.com/shkm/shellflow#readme'),
+    'app::helpReportIssue': () => openUrl('https://github.com/shkm/shellflow/issues/new'),
+    'app::helpReleaseNotes': () => openUrl('https://github.com/shkm/shellflow/releases'),
   }), [
     activeProjectId, activeWorktreeId, activeScratchId, activeDrawerTabId, isDrawerOpen, activeFocusState,
     openWorktreesInOrder, projects, config.apps, activeEntityId, scratchCwds,
@@ -2711,7 +2792,7 @@ function App() {
     handleAddDrawerTab, handleOpenInDrawer, handleOpenInTab, handleAddSessionTab,
     handleCloseWorktree, handleCloseScratch,
     handleToggleDrawer, handleToggleDrawerExpand, handleToggleRightPanel, handleToggleProjectSwitcher,
-    handleZoomIn, handleZoomOut, handleZoomReset, handleSwitchToPreviousView, handleSwitchFocus,
+    handleZoomIn, handleZoomOut, handleZoomReset, handleNavigateBack, handleNavigateForward, handleSwitchFocus,
     handleRenameBranch, handleMergeWorktree, handleDeleteWorktree, handleToggleTask, handleToggleTaskSwitcher,
     handleNextChangedFile, handlePrevChangedFile,
     getCurrentEntityIndex, selectEntityAtIndex,
@@ -2783,13 +2864,14 @@ function App() {
     onCloseProject: () => activeProjectId && handleCloseProject(activeProjectId),
 
     // Navigation actions
-    onNavigatePrev: () => actionHandlers.sessionPrev?.(),
-    onNavigateNext: () => actionHandlers.sessionNext?.(),
-    onNavigateBack: handleSwitchToPreviousView,
+    onNavigatePrev: () => actionHandlers['navigate::prev']?.(),
+    onNavigateNext: () => actionHandlers['navigate::next']?.(),
+    onNavigateBack: handleNavigateBack,
+    onNavigateForward: handleNavigateForward,
     onNavigateToProject: () => {
       // Switch from worktree/scratch to project view
+      // Navigation history is handled by the useEffect that tracks view changes
       if ((activeWorktreeId || activeScratchId) && activeProjectId) {
-        setPreviousView({ worktreeId: activeWorktreeId, projectId: activeProjectId, scratchId: activeScratchId });
         setActiveWorktreeId(null);
         setActiveScratchId(null);
       }
@@ -2845,7 +2927,7 @@ function App() {
     handleCloseDrawerTab, handleToggleDrawer, handleToggleDrawerExpand, handleSelectDrawerTab, handleAddDrawerTab,
     handleAddSessionTab, handleCloseSessionTab, handleCloseCurrentSession, handlePrevSessionTab, handleNextSessionTab, handleSelectSessionTabByIndex,
     handleCloseScratch, handleAddScratchTerminal, handleCloseWorktree, handleAddWorktree, handleCloseProject,
-    handleSwitchToPreviousView, handleSwitchFocus, handleZoomIn, handleZoomOut, handleZoomReset,
+    handleNavigateBack, handleNavigateForward, handleSwitchFocus, handleZoomIn, handleZoomOut, handleZoomReset,
     handleToggleRightPanel, handleToggleCommandPalette, handleToggleTaskSwitcher, handleToggleProjectSwitcher,
     handleToggleTask, selectEntityAtIndex, actionHandlers,
     isCommandPaletteOpen, isTaskSwitcherOpen, isProjectSwitcherOpen,
@@ -2872,7 +2954,8 @@ function App() {
         isProjectSwitcherOpen,
         hasOpenModal: !!(pendingCloseProject || pendingDeleteId || pendingMergeId),
         openEntityCount: openEntitiesInOrder.length,
-        hasPreviousView: !!previousView,
+        canGoBack,
+        canGoForward,
         isDiffViewOpen: activeDiffState.isViewingDiff,
       };
 
@@ -2903,7 +2986,7 @@ function App() {
     activeScratchId, activeWorktreeId, activeProjectId, activeFocusState,
     isDrawerOpen, isRightPanelOpen, isCommandPaletteOpen, isTaskSwitcherOpen, isProjectSwitcherOpen,
     pendingCloseProject, pendingDeleteId, pendingMergeId,
-    openEntitiesInOrder.length, previousView,
+    openEntitiesInOrder.length, canGoBack, canGoForward,
     resolveKeyEvent, contextActionHandlers,
   ]);
 
