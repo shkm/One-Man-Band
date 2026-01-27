@@ -2439,7 +2439,7 @@ function App() {
     openInEditor: () => {
       const command = getAppCommand(config.apps.editor);
       // Editor defaults to 'terminal' when not configured (same as Sidebar default)
-      const target = config.apps.editor ? getAppTarget(config.apps.editor) : getAppTarget(null, 'terminal');
+      const target = config.apps.editor ? getAppTarget(config.apps.editor) : getAppTarget(undefined, 'terminal');
       const terminalCommand = getAppCommand(config.apps.terminal);
 
       // Get the path
