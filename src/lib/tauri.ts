@@ -9,6 +9,9 @@ import {
   CleanupOptions,
   WorktreeDeleteStatus,
   DeleteWorktreeOptions,
+  BranchInfo,
+  DiffContent,
+  ChangedFilesViewMode,
 } from '../types';
 
 // Project commands
@@ -174,6 +177,29 @@ export async function abortMerge(projectPath: string): Promise<void> {
 
 export async function abortRebase(projectPath: string): Promise<void> {
   return invoke<void>('abort_rebase', { projectPath });
+}
+
+export async function getBranchInfo(
+  worktreePath: string,
+  projectPath?: string
+): Promise<BranchInfo> {
+  return invoke<BranchInfo>('get_branch_info', { worktreePath, projectPath });
+}
+
+export async function getBranchChangedFiles(
+  worktreePath: string,
+  projectPath?: string
+): Promise<FileChange[]> {
+  return invoke<FileChange[]>('get_branch_changed_files', { worktreePath, projectPath });
+}
+
+export async function getFileDiffContent(
+  worktreePath: string,
+  filePath: string,
+  mode: ChangedFilesViewMode,
+  projectPath?: string
+): Promise<DiffContent> {
+  return invoke<DiffContent>('get_file_diff_content', { worktreePath, filePath, mode, projectPath });
 }
 
 // Dialog helpers

@@ -949,6 +949,75 @@ fn get_changed_files(worktree_path: &str) -> Result<Vec<FileChange>> {
 }
 
 #[tauri::command]
+fn get_branch_info(
+    worktree_path: &str,
+    project_path: Option<String>,
+) -> Result<state::BranchInfo> {
+    let path = Path::new(worktree_path);
+    let cfg = config::load_config_for_project(project_path.as_deref());
+    git::get_branch_info(path, &cfg.worktree.base_branch).map_err(map_err)
+}
+
+#[tauri::command]
+fn get_branch_changed_files(
+    worktree_path: &str,
+    project_path: Option<String>,
+) -> Result<Vec<FileChange>> {
+    let path = Path::new(worktree_path);
+    let cfg = config::load_config_for_project(project_path.as_deref());
+    git::get_branch_changed_files(path, &cfg.worktree.base_branch).map_err(map_err)
+}
+
+#[tauri::command]
+fn get_file_diff_content(
+    worktree_path: &str,
+    file_path: &str,
+    mode: &str,
+    project_path: Option<String>,
+) -> Result<state::DiffContent> {
+    let path = Path::new(worktree_path);
+    let cfg = config::load_config_for_project(project_path.as_deref());
+    let base_branch = &cfg.worktree.base_branch;
+
+    let (original, modified, original_label, modified_label) = match mode {
+        "uncommitted" => {
+            // Original = HEAD, Modified = working tree
+            let original = git::get_file_at_ref(path, file_path, "HEAD")
+                .unwrap_or_default();
+            let modified = git::get_working_file(path, file_path)
+                .unwrap_or_default();
+            (original, modified, "HEAD".to_string(), "Working Tree".to_string())
+        }
+        "branch" => {
+            // Original = base branch, Modified = working tree
+            // This shows all changes vs base (committed + uncommitted)
+            let target_branch = git::resolve_target_branch(
+                &git2::Repository::open(path).map_err(map_err)?,
+                base_branch,
+            ).map_err(map_err)?;
+            let original = git::get_file_at_ref(path, file_path, &target_branch)
+                .unwrap_or_default();
+            let modified = git::get_working_file(path, file_path)
+                .unwrap_or_default();
+            (original, modified, target_branch, "Working Tree".to_string())
+        }
+        _ => {
+            return Err("Invalid mode".into());
+        }
+    };
+
+    let language = git::detect_language(file_path);
+
+    Ok(state::DiffContent {
+        original,
+        modified,
+        original_label,
+        modified_label,
+        language,
+    })
+}
+
+#[tauri::command]
 fn has_uncommitted_changes(project_path: &str) -> Result<bool> {
     let path = Path::new(project_path);
     git::has_uncommitted_changes_at_path(path).map_err(map_err)
@@ -1880,6 +1949,9 @@ pub fn run() {
             pty_kill,
             pty_force_kill,
             get_changed_files,
+            get_branch_info,
+            get_branch_changed_files,
+            get_file_diff_content,
             has_uncommitted_changes,
             stash_changes,
             stash_pop,

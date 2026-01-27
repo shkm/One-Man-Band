@@ -1,7 +1,15 @@
-import { FileChange } from '../../types';
+import { FileChange, ChangedFilesViewMode } from '../../types';
 
 interface ChangedFilesProps {
   files: FileChange[];
+  isGitRepo?: boolean;
+  loading?: boolean;
+  mode?: ChangedFilesViewMode;
+  onModeChange?: (mode: ChangedFilesViewMode) => void;
+  showModeToggle?: boolean;
+  onFileClick?: (path: string) => void;
+  /** Currently selected file path (for highlighting) */
+  selectedFile?: string | null;
 }
 
 const statusConfig: Record<FileChange['status'], { color: string; label: string }> = {
@@ -12,7 +20,16 @@ const statusConfig: Record<FileChange['status'], { color: string; label: string 
   untracked: { color: 'text-zinc-400', label: '?' },
 };
 
-export function ChangedFiles({ files }: ChangedFilesProps) {
+export function ChangedFiles({
+  files,
+  isGitRepo = true,
+  loading = false,
+  mode = 'uncommitted',
+  onModeChange,
+  showModeToggle = false,
+  onFileClick,
+  selectedFile,
+}: ChangedFilesProps) {
   // Calculate total insertions and deletions
   const totals = files.reduce(
     (acc, file) => ({
@@ -24,8 +41,42 @@ export function ChangedFiles({ files }: ChangedFilesProps) {
 
   const hasChanges = totals.insertions > 0 || totals.deletions > 0;
 
+  const getEmptyMessage = () => {
+    if (!isGitRepo) {
+      return 'Not a git repository';
+    }
+    if (showModeToggle) {
+      return mode === 'uncommitted' ? 'No uncommitted changes' : 'No changes from base branch';
+    }
+    return 'No changes detected';
+  };
+
   return (
     <div className="flex flex-col h-full select-none">
+      {showModeToggle && (
+        <div className="px-3 py-2 border-b border-zinc-800 flex gap-1">
+          <button
+            onClick={() => onModeChange?.('uncommitted')}
+            className={`px-2 py-1 text-xs rounded ${
+              mode === 'uncommitted'
+                ? 'bg-zinc-700 text-zinc-200'
+                : 'text-zinc-400 hover:bg-zinc-800'
+            }`}
+          >
+            Uncommitted
+          </button>
+          <button
+            onClick={() => onModeChange?.('branch')}
+            className={`px-2 py-1 text-xs rounded ${
+              mode === 'branch'
+                ? 'bg-zinc-700 text-zinc-200'
+                : 'text-zinc-400 hover:bg-zinc-800'
+            }`}
+          >
+            Branch
+          </button>
+        </div>
+      )}
       <div className="px-3 py-2 border-b border-zinc-800 flex items-center justify-between">
         <span className="text-xs text-zinc-500">
           {files.length} {files.length === 1 ? 'file' : 'files'}
@@ -39,18 +90,28 @@ export function ChangedFiles({ files }: ChangedFilesProps) {
         )}
       </div>
       <div className="flex-1 overflow-y-auto">
-        {files.length === 0 ? (
+        {loading ? (
           <div className="p-4 text-center text-zinc-500 text-sm">
-            No changes detected
+            Loading...
+          </div>
+        ) : files.length === 0 || !isGitRepo ? (
+          <div className="p-4 text-center text-zinc-500 text-sm">
+            {getEmptyMessage()}
           </div>
         ) : (
           <ul className="py-1">
             {files.map((file) => {
               const config = statusConfig[file.status];
+              const isSelected = selectedFile === file.path;
               return (
                 <li
                   key={file.path}
-                  className="flex items-center gap-2 px-3 py-1.5 hover:bg-zinc-800 group"
+                  className={`flex items-center gap-2 px-3 py-1.5 group ${
+                    isSelected
+                      ? 'bg-zinc-700'
+                      : 'hover:bg-zinc-800'
+                  } ${onFileClick ? 'cursor-pointer' : ''}`}
+                  onClick={() => onFileClick?.(file.path)}
                 >
                   <span className={`flex-shrink-0 w-4 text-xs font-mono ${config.color}`}>
                     {config.label}

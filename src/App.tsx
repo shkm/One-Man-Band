@@ -33,7 +33,7 @@ import { useMappings } from './hooks/useMappings';
 import { getActiveContexts, type ContextState } from './lib/contexts';
 import { createActionHandlers, executeAction } from './lib/actionHandlers';
 import { copyFromActiveTerminal, pasteToActiveTerminal } from './lib/terminalRegistry';
-import { Project, Worktree, RunningTask, MergeCompleted, Session, SessionKind } from './types';
+import { Project, Worktree, RunningTask, MergeCompleted, Session, SessionKind, ChangedFilesViewMode } from './types';
 import { ToastContainer } from './components/Toast';
 import { useToast } from './hooks/useToast';
 
@@ -130,6 +130,9 @@ function App() {
   const [isDrawerExpanded, setIsDrawerExpanded] = useState(false);
   const [isRightPanelOpen, setIsRightPanelOpen] = useState(false);
 
+  // Changed files mode (uncommitted vs branch)
+  const [changedFilesMode, setChangedFilesMode] = useState<ChangedFilesViewMode>('uncommitted');
+
   // Zoom levels per pane type (not persisted across sessions)
   const [mainZoom, setMainZoom] = useState(0);
   const [drawerZoom, setDrawerZoom] = useState(0);
@@ -162,6 +165,7 @@ function App() {
     removePtyId: removeSessionPtyId,
     setLastActiveTabId,
     updateTabLabel: updateSessionTabLabel,
+    updateTab: updateSessionTab,
     prevTab: prevSessionTab,
     nextTab: nextSessionTab,
     selectTabByIndex: selectSessionTabByIndex,
@@ -347,6 +351,19 @@ function App() {
   // Get current session's active tab
   const activeSessionTabId = getActiveTabIdForSession(activeSessionId);
   // Note: sessionLastActiveTabIds is passed directly to MainPane for per-session lookup
+
+  // Compute current diff state (whether viewing a diff and which file)
+  const activeDiffState = useMemo(() => {
+    if (!activeSessionId || !activeSessionTabId) {
+      return { isViewingDiff: false, currentFilePath: null };
+    }
+    const tabs = getTabsForSession(activeSessionId);
+    const activeTab = tabs.find(t => t.id === activeSessionTabId);
+    if (activeTab?.diff) {
+      return { isViewingDiff: true, currentFilePath: activeTab.diff.filePath };
+    }
+    return { isViewingDiff: false, currentFilePath: null };
+  }, [activeSessionId, activeSessionTabId, getTabsForSession]);
 
   // Create initial session tab when a session becomes active and has no tabs
   useEffect(() => {
@@ -612,7 +629,87 @@ function App() {
     };
   }, [isShuttingDown]);
 
-  const { files: changedFiles } = useGitStatus(gitStatusTarget);
+  const { files: changedFiles, isGitRepo, loading: changedFilesLoading, branchInfo } = useGitStatus(
+    gitStatusTarget,
+    { mode: changedFilesMode, projectPath: activeProject?.path }
+  );
+
+  // Show mode toggle only when:
+  // 1. Active entity is a worktree (not a project/main repo)
+  // 2. The worktree is NOT on the base branch
+  const showChangedFilesModeToggle = useMemo(() => {
+    return !!activeWorktree && branchInfo && !branchInfo.isOnBaseBranch;
+  }, [activeWorktree, branchInfo]);
+
+  // Reset mode to 'uncommitted' when toggle becomes hidden
+  useEffect(() => {
+    if (!showChangedFilesModeToggle && changedFilesMode !== 'uncommitted') {
+      setChangedFilesMode('uncommitted');
+    }
+  }, [showChangedFilesModeToggle, changedFilesMode]);
+
+  // Handle file click in changed files list - open diff tab (reuse existing diff tab if present)
+  const handleFileClick = useCallback((filePath: string) => {
+    if (!activeSessionId || !gitStatusTarget) return;
+
+    // Extract just the filename for the tab label
+    const fileName = filePath.split('/').pop() ?? filePath;
+
+    // Use a consistent diff tab ID per session
+    const diffTabId = `${activeSessionId}-diff`;
+
+    // Check if a diff tab already exists for this session
+    const currentTabs = getTabsForSession(activeSessionId);
+    const existingDiffTab = currentTabs.find(t => t.id === diffTabId);
+
+    const newDiffConfig = {
+      filePath,
+      mode: changedFilesMode,
+      worktreePath: gitStatusTarget.path,
+      projectPath: activeProject?.path,
+    };
+
+    if (existingDiffTab) {
+      // Update the existing diff tab with the new file
+      updateSessionTab(activeSessionId, diffTabId, {
+        label: fileName,
+        diff: newDiffConfig,
+      });
+      // Switch to the diff tab
+      setActiveSessionTab(activeSessionId, diffTabId);
+    } else {
+      // Create a new diff tab
+      const newTab: SessionTab = {
+        id: diffTabId,
+        label: fileName,
+        isPrimary: false,
+        diff: newDiffConfig,
+      };
+      addSessionTab(activeSessionId, newTab);
+    }
+  }, [activeSessionId, gitStatusTarget, activeProject, changedFilesMode, getTabsForSession, updateSessionTab, setActiveSessionTab, addSessionTab]);
+
+  // Navigate to next changed file in the diff list
+  const handleNextChangedFile = useCallback(() => {
+    if (!activeDiffState.isViewingDiff || !activeDiffState.currentFilePath || changedFiles.length === 0) return;
+
+    const currentIndex = changedFiles.findIndex(f => f.path === activeDiffState.currentFilePath);
+    if (currentIndex === -1) return;
+
+    const nextIndex = (currentIndex + 1) % changedFiles.length;
+    handleFileClick(changedFiles[nextIndex].path);
+  }, [activeDiffState, changedFiles, handleFileClick]);
+
+  // Navigate to previous changed file in the diff list
+  const handlePrevChangedFile = useCallback(() => {
+    if (!activeDiffState.isViewingDiff || !activeDiffState.currentFilePath || changedFiles.length === 0) return;
+
+    const currentIndex = changedFiles.findIndex(f => f.path === activeDiffState.currentFilePath);
+    if (currentIndex === -1) return;
+
+    const prevIndex = currentIndex === 0 ? changedFiles.length - 1 : currentIndex - 1;
+    handleFileClick(changedFiles[prevIndex].path);
+  }, [activeDiffState, changedFiles, handleFileClick]);
 
   // Dispatch event to trigger immediate terminal resize after panel toggle
   const dispatchPanelResizeComplete = useCallback(() => {
@@ -2340,7 +2437,9 @@ function App() {
     previousView,
     activeSelectedTask,
     taskCount: config.tasks.length,
-  }), [activeProjectId, activeWorktreeId, activeScratchId, activeEntityId, isDrawerOpen, activeFocusState, activeDrawerTabId, openWorktreesInOrder.length, previousView, activeSelectedTask, config.tasks.length]);
+    isViewingDiff: activeDiffState.isViewingDiff,
+    changedFilesCount: changedFiles.length,
+  }), [activeProjectId, activeWorktreeId, activeScratchId, activeEntityId, isDrawerOpen, activeFocusState, activeDrawerTabId, openWorktreesInOrder.length, previousView, activeSelectedTask, config.tasks.length, activeDiffState.isViewingDiff, changedFiles.length]);
 
   // Dynamic labels for command palette based on configured apps
   const commandPaletteLabelOverrides = useMemo(() => {
@@ -2598,6 +2697,9 @@ function App() {
     deleteWorktree: () => activeWorktreeId && handleDeleteWorktree(activeWorktreeId),
     runTask: handleToggleTask,
     taskSwitcher: handleToggleTaskSwitcher,
+    // Diff navigation
+    nextChangedFile: handleNextChangedFile,
+    prevChangedFile: handlePrevChangedFile,
     // Help menu
     helpDocs: () => openUrl('https://github.com/shkm/shellflow#readme'),
     helpReportIssue: () => openUrl('https://github.com/shkm/shellflow/issues/new'),
@@ -2611,6 +2713,7 @@ function App() {
     handleToggleDrawer, handleToggleDrawerExpand, handleToggleRightPanel, handleToggleProjectSwitcher,
     handleZoomIn, handleZoomOut, handleZoomReset, handleSwitchToPreviousView, handleSwitchFocus,
     handleRenameBranch, handleMergeWorktree, handleDeleteWorktree, handleToggleTask, handleToggleTaskSwitcher,
+    handleNextChangedFile, handlePrevChangedFile,
     getCurrentEntityIndex, selectEntityAtIndex,
   ]);
 
@@ -2732,6 +2835,10 @@ function App() {
       if (pendingDeleteId) setPendingDeleteId(null);
       if (pendingMergeId) setPendingMergeId(null);
     },
+
+    // Diff navigation actions
+    onNextChangedFile: handleNextChangedFile,
+    onPrevChangedFile: handlePrevChangedFile,
   }), [
     activeDrawerTabId, activeDrawerTabs, isDrawerOpen, activeScratchId, activeWorktreeId, activeProjectId,
     activeSessionTabId,
@@ -2743,6 +2850,7 @@ function App() {
     handleToggleTask, selectEntityAtIndex, actionHandlers,
     isCommandPaletteOpen, isTaskSwitcherOpen, isProjectSwitcherOpen,
     pendingCloseProject, pendingDeleteId, pendingMergeId,
+    handleNextChangedFile, handlePrevChangedFile,
   ]);
 
   // Context-aware keyboard shortcuts (new system)
@@ -2765,6 +2873,7 @@ function App() {
         hasOpenModal: !!(pendingCloseProject || pendingDeleteId || pendingMergeId),
         openEntityCount: openEntitiesInOrder.length,
         hasPreviousView: !!previousView,
+        isDiffViewOpen: activeDiffState.isViewingDiff,
       };
 
       // Get active contexts
@@ -3277,7 +3386,16 @@ function App() {
           onResize={handleRightPanelResize}
         >
           <div className="h-full w-full overflow-hidden">
-            <RightPanel changedFiles={changedFiles} />
+            <RightPanel
+              changedFiles={changedFiles}
+              isGitRepo={isGitRepo}
+              loading={changedFilesLoading}
+              mode={changedFilesMode}
+              onModeChange={setChangedFilesMode}
+              showModeToggle={showChangedFilesModeToggle ?? false}
+              onFileClick={handleFileClick}
+              selectedFile={activeDiffState.currentFilePath}
+            />
           </div>
         </Panel>
       </PanelGroup>

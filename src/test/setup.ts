@@ -102,9 +102,13 @@ vi.mock('@tauri-apps/api/core', () => ({
 
     if (mockInvokeResponses.has(command)) {
       const response = mockInvokeResponses.get(command);
-      // If it's a function, call it with args
+      // If it's a function, call it with args and properly handle errors
       if (typeof response === 'function') {
-        return Promise.resolve(response(args));
+        try {
+          return Promise.resolve(response(args));
+        } catch (err) {
+          return Promise.reject(err);
+        }
       }
       return Promise.resolve(response);
     }

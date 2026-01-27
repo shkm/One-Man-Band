@@ -28,7 +28,8 @@ export type ActionNamespace =
   | 'task'
   | 'terminal'
   | 'modal'
-  | 'rightPanel';
+  | 'rightPanel'
+  | 'diff';
 
 /**
  * Namespaced action identifier (e.g., "drawer::closeTab")

@@ -88,6 +88,10 @@ export interface ActionHandlerCallbacks {
 
   // Modal actions
   onCloseModal: () => void;
+
+  // Diff navigation actions
+  onNextChangedFile: () => void;
+  onPrevChangedFile: () => void;
 }
 
 /**
@@ -182,6 +186,10 @@ export function createActionHandlers(callbacks: ActionHandlerCallbacks): ActionH
 
     // Modal actions
     'modal::close': callbacks.onCloseModal,
+
+    // Diff navigation actions
+    'diff::nextFile': callbacks.onNextChangedFile,
+    'diff::prevFile': callbacks.onPrevChangedFile,
   };
 }
 
