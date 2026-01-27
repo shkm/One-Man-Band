@@ -14,6 +14,7 @@ export const ModalList = forwardRef<HTMLDivElement, ModalListProps>(function Mod
     <div
       ref={ref}
       className="max-h-80 overflow-y-auto py-1"
+      data-testid="modal-list"
     >
       {isEmpty ? (
         <div className="px-3 py-6 text-sm text-center" style={{ color: 'var(--modal-item-text-muted)' }}>

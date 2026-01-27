@@ -64,6 +64,7 @@ cd src-tauri && cargo test
 2. Add regression tests for bug fixes to prevent recurrence
 3. Use existing test files as patterns (e.g., `usePty.test.ts` for hooks)
 4. Mock Tauri APIs using the setup in `src/test/setup.ts`
+5. Use `data-testid` attributes to query elements in tests, not CSS classes (Tailwind classes are brittle and change frequently)
 
 ## Commits and Releases
 

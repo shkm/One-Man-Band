@@ -635,7 +635,8 @@ describe('App', () => {
       // After filtering, only beta-project should match
       // (there may still be one in sidebar, but the filtered list should only show beta)
       await waitFor(() => {
-        const searchResults = document.querySelectorAll('[class*="hover:bg-zinc"]');
+        const modalList = screen.getByTestId('modal-list');
+        const searchResults = modalList.querySelectorAll('button');
         // At least one match should contain beta
         const hasBetaResult = Array.from(searchResults).some(el =>
           el.textContent?.includes('beta-project')
