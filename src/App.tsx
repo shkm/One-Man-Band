@@ -767,6 +767,11 @@ function App() {
     handleFileClick(changedFiles[0].path);
   }, [changedFiles, handleFileClick]);
 
+// Toggle between uncommitted and branch diff mode
+  const handleToggleDiffMode = useCallback(() => {
+    setChangedFilesMode((prev) => (prev === 'uncommitted' ? 'branch' : 'uncommitted'));
+  }, []);
+
   // Dispatch events to coordinate terminal resize during panel toggle
   const dispatchPanelResize = useCallback((doResize: () => void) => {
     // Notify terminals to capture snapshot before resize
@@ -2835,6 +2840,7 @@ function App() {
     'diff::open': handleOpenDiff,
     'diff::nextFile': handleNextChangedFile,
     'diff::prevFile': handlePrevChangedFile,
+    'diff::toggleMode': handleToggleDiffMode,
     // Help menu
     'app::helpDocs': () => openUrl('https://github.com/shkm/shellflow#readme'),
     'app::helpReportIssue': () => openUrl('https://github.com/shkm/shellflow/issues/new'),
@@ -2848,7 +2854,7 @@ function App() {
     handleToggleDrawer, handleToggleDrawerExpand, handleToggleRightPanel, handleToggleProjectSwitcher,
     handleZoomIn, handleZoomOut, handleZoomReset, handleCycleBorderStyle, handleNavigateBack, handleNavigateForward, handleSwitchFocus,
     handleRenameBranch, handleMergeWorktree, handleDeleteWorktree, handleToggleTask, handleToggleTaskSwitcher,
-    handleOpenDiff, handleNextChangedFile, handlePrevChangedFile,
+    handleOpenDiff, handleNextChangedFile, handlePrevChangedFile, handleToggleDiffMode,
     getCurrentEntityIndex, selectEntityAtIndex,
   ]);
 
@@ -2979,6 +2985,7 @@ function App() {
     onOpenDiff: handleOpenDiff,
     onNextChangedFile: handleNextChangedFile,
     onPrevChangedFile: handlePrevChangedFile,
+    onToggleDiffMode: handleToggleDiffMode,
   }), [
     activeDrawerTabId, activeDrawerTabs, isDrawerOpen, activeScratchId, activeWorktreeId, activeProjectId,
     activeSessionTabId,
@@ -2990,7 +2997,7 @@ function App() {
     handleToggleTask, selectEntityAtIndex, actionHandlers,
     isCommandPaletteOpen, isTaskSwitcherOpen, isProjectSwitcherOpen,
     pendingCloseProject, pendingDeleteId, pendingMergeId,
-    handleOpenDiff, handleNextChangedFile, handlePrevChangedFile,
+    handleOpenDiff, handleNextChangedFile, handlePrevChangedFile, handleToggleDiffMode,
   ]);
 
   // Context-aware keyboard shortcuts (new system)
