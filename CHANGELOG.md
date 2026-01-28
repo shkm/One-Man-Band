@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.0](https://github.com/shkm/shellflow/compare/v0.11.0...v0.12.0) (2026-01-28)
+
+
+### Features
+
+* add diff::toggleMode action and change focus::switch keybinding ([5d851ba](https://github.com/shkm/shellflow/commit/5d851bad9e19047f4676345832ae375738302011))
+
+
+### Bug Fixes
+
+* diff editor word wrap and scrollbar issues ([c52e1f6](https://github.com/shkm/shellflow/commit/c52e1f6b878cf1afa36ab4886a7f20560f910bc2))
+* make mappings config test platform-aware ([8f34369](https://github.com/shkm/shellflow/commit/8f343698f03da0f8ebaeff17271f833004cafc28))
+* prevent terminal stretch jank during panel resize ([936c856](https://github.com/shkm/shellflow/commit/936c8560c2791e0badd492dcdf4848b154c6a373))
+
 ## [0.11.0](https://github.com/shkm/shellflow/compare/v0.10.0...v0.11.0) (2026-01-28)
 
 
